@@ -1,11 +1,13 @@
 #!/bin/bash
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=10
+#SBATCH --mem-per-cpu 1G
 #SBATCH --time=16:00:00
 #SBATCH --job-name="Gathering"
 # export PATH=/mnt/beegfs/iiia/arnau_mayoral/conda/envs/Gathering/bin:~/conda/bin:$PATH
+# export PATH=$STORE/conda/envs/framework/bin:$STORE/conda/bin:$PATH
 
-export PATH=~/beegfs/anaconda3/envs/MAEGG_IPPO/bin:~/beegfs/anaconda3/bin:$PATH
+export PATH=$STORE/conda/envs/framework/bin:$STORE/conda/bin:$PATH
 source activate MAEGG_IPPO
 export PYTHONUNBUFFERED=TRUE
 

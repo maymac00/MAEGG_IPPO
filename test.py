@@ -10,7 +10,7 @@ agents = IPPO.agents_from_file("data/tiny/2500_30000_1")
 env.setTrack(True)
 env.setStash(True)
 env.reset()
-for r in range(100):
+for r in range(10):
     obs, _ = env.reset()
     acc_reward = [0] * env.n_agents
     for i in range(env.max_steps):
