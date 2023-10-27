@@ -9,7 +9,7 @@
     "n_steps": 2500,
     "tot_steps": 15000000,
     "save_dir": "EGG_DATA",
-    "early_stop": 7500000.0,
+    "early_stop": 15000000,
     "past_actions_memory": 0,
     "clip": 0.2,
     "target_kl": null,

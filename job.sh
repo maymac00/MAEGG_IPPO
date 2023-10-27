@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=10
-#SBATCH --mem-per-cpu 1G
-#SBATCH --time=16:00:00
+#SBATCH --cpus-per-task=6
+#SBATCH --mem 1G
+#SBATCH --time=6:00:00
 #SBATCH --job-name="Gathering"
 # export PATH=/mnt/beegfs/iiia/arnau_mayoral/conda/envs/Gathering/bin:~/conda/bin:$PATH
 # export PATH=$STORE/conda/envs/framework/bin:$STORE/conda/bin:$PATH
@@ -22,4 +22,5 @@ curl -s "https://api.github.com/repos/maymac00/Independent_PPO/commits" | grep -
 echo "Code used for MAEGathering:"
 curl -s "https://api.github.com/repos/maymac00/MultiAgentEthicalGatheringGame/commits" | grep -E -m 1 '"sha"|"date"' | sed -E 's/.*: "(.*)".*/\1/'
 echo "===================="
-srun python main.py
+
+srun python main.py --tag epochs_findings --seed 3 --n-steps 2000 --n-epochs 20

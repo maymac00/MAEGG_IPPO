@@ -1,7 +1,7 @@
 {
     "verbose": false,
     "tb_log": true,
-    "tag": "tiny",
+    "tag": "small",
     "env": "MultiAgentEthicalGathering-v1",
     "seed": 1,
     "max_steps": 500,
