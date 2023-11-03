@@ -23,4 +23,4 @@ echo "Code used for MAEGathering:"
 curl -s "https://api.github.com/repos/maymac00/MultiAgentEthicalGatheringGame/commits" | grep -E -m 1 '"sha"|"date"' | sed -E 's/.*: "(.*)".*/\1/'
 echo "===================="
 
-srun python main.py --tag epochs_findings --seed 3 --n-steps 2000 --n-epochs 20
+srun python main.py --tag should_work --seed 2

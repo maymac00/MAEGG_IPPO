@@ -1,12 +1,14 @@
 from EthicalGatheringGame import MAEGG
 from EthicalGatheringGame.presets import tiny, small
 from IndependentPPO import IPPO
+from IndependentPPO.agent import SoftmaxActor
+from IndependentPPO.ActionSelection import *
 import gym
 
-env = gym.make("MultiAgentEthicalGathering-v1", **tiny)
+env = gym.make("MultiAgentEthicalGathering-v1", **small)
 
-agents = IPPO.agents_from_file("EGG_DATA/tiny/2500_30000_2")
-
+agents = IPPO.agents_from_file("jro/EGG_DATA/small/2500_50000_1")
+SoftmaxActor.action_selection = bottom_filter
 env.setTrack(True)
 env.setStash(True)
 env.reset()
@@ -17,5 +19,6 @@ for r in range(10):
         actions = [agent.predict(obs[i]) for i, agent in enumerate(agents)]
 
         obs, reward, done, info = env.step(actions)
-        #env.render()
+        # env.render()
 env.plot_results("median")
+env.print_results()
