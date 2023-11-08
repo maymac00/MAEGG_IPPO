@@ -8,10 +8,10 @@ from IndependentPPO.agent import SoftmaxActor
 from IndependentPPO.ActionSelection import *
 import gym
 
-env = gym.make("MultiAgentEthicalGathering-v1", **small)
-folder = "jro/EGG_DATA/tiny_convergence_rate/"
+env = gym.make("MultiAgentEthicalGathering-v1", **tiny)
+folder = "EGG_DATA/tiny_convergence_rate/"
 
-n_runs = 1
+n_runs = 25
 agg_data = []
 
 # Read all subfolders in folder
