@@ -27,7 +27,7 @@ def objective(trial):
     ])
     trial.set_user_attr("run_name", ppo.run_name)
     ppo.train()
-    trial.set_user_attr("accuracy", accuracy)
+    trial.set_user_attr("save_dir", ppo.folder)
     metric = 0
     ppo.eval_mode = True
     for i in range(20):  # Sim does n_steps so keep it low
