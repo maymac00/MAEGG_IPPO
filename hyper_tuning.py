@@ -25,7 +25,9 @@ def objective(trial):
         TensorBoardLogging(ppo, log_dir="jro/EGG_DATA/optuna"),
         AnnealEntropy(ppo, concavity=args.concavity_entropy),
     ])
+    trial.set_user_attr("run_name", ppo.run_name)
     ppo.train()
+    trial.set_user_attr("accuracy", accuracy)
     metric = 0
     ppo.eval_mode = True
     for i in range(20):  # Sim does n_steps so keep it low
