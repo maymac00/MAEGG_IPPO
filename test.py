@@ -6,13 +6,10 @@ from IndependentPPO.ActionSelection import *
 from EthicalGatheringGame.wrappers import DummyPeers
 import gym
 
-env = gym.make("MultiAgentEthicalGathering-v1", **small)
+env = gym.make("MultiAgentEthicalGathering-v1", **tiny)
 
-dummy_mask = [1, 0]
-env = DummyPeers(env, dummy_mask)
-
-agents = IPPO.agents_from_file("EGG_DATA/small_dummy/2500_50000_1")
-SoftmaxActor.action_selection = no_filter
+agents = IPPO.agents_from_file("EGG_DATA/tiny_ethical_4/2500_30000_1")
+SoftmaxActor.action_selection = bottom_filter
 env.setTrack(True)
 env.setStash(True)
 env.reset()
@@ -24,5 +21,5 @@ for r in range(10):
 
         obs, reward, done, info = env.step(actions)
         env.render()
-env.plot_results("median")
+env.plot_results("line")
 env.print_results()

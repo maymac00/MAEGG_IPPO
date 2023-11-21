@@ -6,6 +6,7 @@ from IndependentPPO.config import args_from_json
 from IndependentPPO.callbacks import *
 import gym
 
+tiny["we"] = [1, 99]
 env = gym.make("MultiAgentEthicalGathering-v1", **tiny)
 env = NormalizeReward(env)
 args = args_from_json("hyperparameters/tiny.json")
