@@ -1,19 +1,15 @@
 from EthicalGatheringGame import MAEGG
 from EthicalGatheringGame.presets import tiny, small, medium, large
 from EthicalGatheringGame.wrappers import NormalizeReward
-from IndependentPPO import IPPO, ParallelIPPO
+from IndependentPPO.IPPO import IPPO
 from IndependentPPO.config import args_from_json
 from IndependentPPO.callbacks import *
+from hyper_tuning import OptimizerMOMAGG
 import gym
 
-env = gym.make("MultiAgentEthicalGathering-v1", **tiny)
-env = NormalizeReward(env)
-args = args_from_json("hyperparameters/tiny.json")
-ppo = ParallelIPPO(args, env=env)
-ppo.addCallbacks([
-    PrintAverageReward(ppo, n=300),
-    TensorBoardLogging(ppo, log_dir="jro/EGG_DATA"),
-    AnnealEntropy(ppo, concavity=args.concavity_entropy),
-])
-print(args)
-ppo.train()
+
+if __name__ == "__main__":
+    args = args_from_json("hyperparameters/tiny.json")
+    args.save_dir += "/optuna"
+    opt = OptimizerMOMAGG(["maximize", "maximize"], tiny, args, n_trials=1, save=args.save_dir, study_name=args.tag + "_mo")
+    opt.optimize()

@@ -1,3 +1,5 @@
+import copy
+
 import optuna
 from EthicalGatheringGame import MAEGG
 from EthicalGatheringGame.presets import tiny, small, medium, large
@@ -8,66 +10,47 @@ from IndependentPPO.config import args_from_json
 import gym
 import matplotlib
 from IndependentPPO.lr_schedules import DefaultPPOAnnealing, IndependentPPOAnnealing
+from hyper_tuning import OptimizerMAEGG, OptimizerMOMAGG
 
 
-def objective(trial):
-    args = args_from_json("hyperparameters/tiny.json")
-    args.save_dir += "/optuna/" + args.tag
-    tiny["we"] = [1, 0]
-    tiny["donation_capacity"] = 0
-    env = gym.make("MultiAgentEthicalGathering-v1", **tiny)
-    env = NormalizeReward(env)
+class Unethical(OptimizerMOMAGG):
+    def __init__(self, direction, env_config, ppo_config, study_name=None, save=None, n_trials=1):
+        super().__init__(direction, env_config, ppo_config, study_name, save, n_trials)
+        self.env_config["we"] = [1, 0]
 
-    for k, v in tiny.items():
-        trial.set_user_attr(k, v)
+    def objective(self, trial):
+        self.args = copy.deepcopy(self.ppo_config)
+        self.args.save_dir += "/optuna/" + self.study_name
+        self.args.ent_coef = trial.suggest_float("ent_coef", 0.001, 0.1)
 
-    args.ent_coef = trial.suggest_float("ent_coef", 0.0001, 0.01)
-    ppo = ParallelIPPO(args, env=env)
-    ppo.lr_scheduler = IndependentPPOAnnealing(ppo, {
-        0: {
-            "actor_lr": trial.suggest_float("actor_lr_0", 0.00005, 0.001),
-            "critic_lr": trial.suggest_float("critic_lr_0", 0.00005, 0.01)},
-        1: {
-            "actor_lr": trial.suggest_float("actor_lr_1", 0.00005, 0.001),
-            "critic_lr": trial.suggest_float("critic_lr_1", 0.00005, 0.01)},
-    })
-    ppo.addCallbacks([
-        PrintAverageReward(ppo, n=500),
-        TensorBoardLogging(ppo, log_dir="jro/EGG_DATA/optuna"),
-        AnnealEntropy(ppo, concavity=args.concavity_entropy),
-    ])
-    trial.set_user_attr("run_name", ppo.run_name)
-    ppo.train()
-    trial.set_user_attr("save_dir", ppo.folder)
-    metric = 0
-    ppo.eval_mode = True
-    for i in range(20):  # Rollout does n_steps so keep it low
-        rec = ppo.rollout()
-        metric += rec.mean()
-    metric /= 20
-    return metric
+        # Set ppo parameters as user attributes.
+        for k, v in self.args.__dict__.items():
+            trial.set_user_attr(k, v)
+
+        env = gym.make("MultiAgentEthicalGathering-v1", **self.env_config)
+        env = NormalizeReward(env)
+
+        # Set environment parameters as user attributes.
+        for k, v in self.env_config.items():
+            trial.set_user_attr(k, v)
+
+        ppo = ParallelIPPO(self.args, env=env)
+        ppo.lr_scheduler = IndependentPPOAnnealing(ppo, {
+            k: {"actor_lr": trial.suggest_float(f"actor_lr_{k}", 0.00005, 0.001),
+                "critic_lr": trial.suggest_float(f"critic_lr_{k}", 0.00005, 0.01)
+                } for k in ppo.agents})
+        ppo.addCallbacks([
+            PrintAverageReward(ppo, n=300),
+            TensorBoardLogging(ppo, log_dir="jro/EGG_DATA"),
+            AnnealEntropy(ppo, concavity=self.args.concavity_entropy),
+        ])
+
+        ppo.train()
+        return self.eval_mo(ppo)
 
 
 if __name__ == "__main__":
     args = args_from_json("hyperparameters/tiny.json")
-    save = args.save_dir + "/optuna/" + args.tag
-    storage_path = f'sqlite:///{save}/database.db'
-    study_name = args.tag
-
-    try:
-        # Try to load the existing study.
-        study = optuna.load_study(study_name=study_name, storage=storage_path)
-        print(f"Loaded existing study '{study_name}' with {len(study.trials)} trials.")
-    except:
-        # If the study does not exist, create a new one.
-        import os
-
-        os.makedirs(save, exist_ok=True)
-        # Create file
-        f = open(f"{save}/database.db", "w+")
-        # close file
-        f.close()
-        study = optuna.create_study(direction="maximize", study_name=study_name, storage=storage_path)
-        print(f"Created new study '{study_name}'.")
-
-    study.optimize(objective, n_trials=1)
+    args.save_dir += "/optuna"
+    opt = Unethical(["maximize", "maximize"], tiny, args, n_trials=1, save=args.save_dir, study_name=args.tag+"_mo")
+    opt.optimize()
