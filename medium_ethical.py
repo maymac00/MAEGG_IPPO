@@ -19,11 +19,11 @@ class MediumSizeOptimize(OptimizerMAEGG):
     def pre_objective_callback(self, trial):
         self.args = copy.deepcopy(self.ppo_config)
         self.args.save_dir += "/" + self.study_name
-        self.args.actor_lr = trial.suggest_float("actor_lr", 0.000005, 0.001)
-        self.args.critic_lr = trial.suggest_float("critic_lr", 0.00005, 0.01)
-        self.args.ent_coef = trial.suggest_float("ent_coef", 0.0001, 0.1)
-        #self.args.tot_steps = trial.suggest_int("tot_steps", 20000000, 100000000, step=10000000)
-        self.args.h_layers = trial.suggest_int("h_layers", 2, 4, step=1)
+        self.args.actor_lr = trial.suggest_float("actor_lr", 0.000005, 0.001, step=0.000005)
+        self.args.critic_lr = trial.suggest_float("critic_lr", 0.00005, 0.01, step=0.00005)
+        self.args.ent_coef = trial.suggest_float("ent_coef", 0.0001, 0.1, step=0.0005)
+        self.args.tot_steps = trial.suggest_int("tot_steps", 20000000, 100000000, step=20000000)
+        self.args.h_layers = trial.suggest_int("h_layers", 2, 5, step=1)
         self.args.h_size = trial.suggest_int("h_size", 64, 256, step=64)
         self.args.concavity_entropy = trial.suggest_float("concavity_entropy", 1.0, 3.5, step=0.5)
 
@@ -40,7 +40,7 @@ class MediumSizeOptimize(OptimizerMAEGG):
         ppo.addCallbacks([
             # PrintAverageReward(ppo, n=150),
             TensorBoardLogging(ppo, log_dir="jro/EGG_DATA"),
-            SaveCheckpoint(ppo, 1),
+            SaveCheckpoint(ppo, 1000),
             Report2Optuna(ppo, trial, 1000, type="mean_loss"),
             AnnealEntropy(ppo),
         ])
@@ -56,7 +56,6 @@ class MediumSizeOptimize(OptimizerMAEGG):
 
 if __name__ == "__main__":
     args = args_from_json("hyperparameters/medium.json")
-    args.tot_steps = 10000
     medium["we"] = [1, 99]
-    opt = MediumSizeOptimize("minimize", medium, args, n_trials=10, save=args.save_dir, study_name=args.tag)
+    opt = MediumSizeOptimize("minimize", medium, args, n_trials=1, save=args.save_dir, study_name=args.tag)
     opt.optimize()
