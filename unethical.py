@@ -30,10 +30,6 @@ class Unethical(OptimizerMOMAGG):
         env = gym.make("MultiAgentEthicalGathering-v1", **self.env_config)
         env = NormalizeReward(env)
 
-        # Set environment parameters as user attributes.
-        for k, v in self.env_config.items():
-            trial.set_user_attr(k, v)
-
         ppo = ParallelIPPO(self.args, env=env)
         ppo.lr_scheduler = IndependentPPOAnnealing(ppo, {
             k: {"actor_lr": trial.suggest_float(f"actor_lr_{k}", 0.00005, 0.001),
@@ -45,7 +41,11 @@ class Unethical(OptimizerMOMAGG):
             AnnealEntropy(ppo, concavity=self.args.concavity_entropy),
         ])
 
+        # Set environment parameters as user attributes.
+        for k, v in self.env_config.items():
+            trial.set_user_attr(k, v)
         ppo.train()
+        trial.set_user_attr("saved", ppo.saved_dir)
         return self.eval_mo(ppo)
 
 
