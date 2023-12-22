@@ -2,7 +2,7 @@
     "verbose": false,
     "tb_log": true,
     "tag": "small",
-    "env": "MultiAgentEthicalGathering-v1",
+    "env_name": "MultiAgentEthicalGathering-v1",
     "seed": 1,
     "max_steps": 500,
     "n_agents": 2,
