@@ -10,8 +10,7 @@ tiny["we"] = [1, 99]
 env = gym.make("MultiAgentEthicalGathering-v1", **tiny)
 # env = NormalizeReward(env)
 
-agents = IPPO.actors_from_file("EGG_DATA/reference_policy/2500_30000_1_(15)")
-SoftmaxActor.action_selection = no_filter
+agents = IPPO.actors_from_file("EGG_DATA/autotuned_reference_policy_try1/AT_RP_it_1")
 env.setTrack(True)
 env.setStash(True)
 env.reset()

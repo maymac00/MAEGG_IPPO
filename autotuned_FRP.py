@@ -2,6 +2,8 @@ import copy
 
 from reference_policy import ParallelFindReferencePolicy
 from IndependentPPO.hypertuning import DecreasingCandidatesTPESampler
+from IndependentPPO import IPPO
+import torch as th
 import optuna
 import os
 
@@ -27,12 +29,12 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
         :param i: non-frozen agent key
         :return:
         """
+        th.set_num_threads(1)
 
         def _finish_training(self):
             pass
 
         self.ppo._finish_training = _finish_training.__get__(self.ppo)
-
 
         p_t, result, i = task
         # Pre trial
@@ -82,11 +84,10 @@ if __name__ == "__main__":
     env = MAEGG(**tiny)
     env = NormalizeReward(env)
 
-    args = args_from_json("/home/arnau/PycharmProjects/MAEGG_IPPO/hyperparameters/tiny.json")
-    args.tot_steps = 5000
+    args = args_from_json("hyperparameters/tiny.json")
     ppo = IPPO(args, env=env)
     ppo.lr_scheduler = DefaultPPOAnnealing(ppo)
-    ppo.addCallbacks(PrintAverageReward(ppo, 1))
+    ppo.addCallbacks(PrintAverageReward(ppo, 5))
     ppo.addCallbacks(AnnealEntropy(ppo, 1.0, 0.5, args.concavity_entropy))
 
     atfrp = AutoTunedFRP(env, ppo)

@@ -103,7 +103,8 @@ class FindReferencePolicy:
             self.logger.info(f"Distance metric: {self.distances[t]}")
 
             # Format time elapsed to HH:MM:SS
-            self.logger.info(f"Time elapsed (without sim time): {int(timespan // 3600)}:{int(timespan // 60) % 60}:{int(timespan % 60)}")
+            self.logger.info(
+                f"Time elapsed (without sim time): {int(timespan // 3600)}:{int(timespan // 60) % 60}:{int(timespan % 60)}")
         return self.policies[t], self.returns[t]
 
     def compute_metrics(self, t):
@@ -150,28 +151,24 @@ class ParallelFindReferencePolicy(FindReferencePolicy):
     def __init__(self, env, ppo, warm_up=5, load_from_ckpt=None, **kwargs):
         super().__init__(env, ppo, warm_up, load_from_ckpt, **kwargs)
         try:
-            mp.set_start_method('spawn')
+            mp.set_start_method('fork')
         except RuntimeError:
             pass
 
     def _parallel_training(self, task):
         th.set_num_threads(1)
-        try:
-            mp.set_start_method('spawn')
-        except RuntimeError:
-            pass
 
         def _finish_training(self):
             pass
 
         self.ppo._finish_training = _finish_training.__get__(self.ppo)
 
-
         p_t, result, id = task
         self.ppo.train(set_agents=p_t)
         result[id] = self.ppo.agents[id]
 
     def compute_best_response(self, t):
+        th.set_num_threads(1)
         self.policies.append({k: None for k in self.ppo.r_agents})
         tasks = []
         with mp.Manager() as manager:
@@ -202,11 +199,10 @@ if __name__ == "__main__":
     env = NormalizeReward(env)
     args = args_from_json("hyperparameters/tiny.json")
     args.tot_steps = 30000
-    ppo = ParallelIPPO(args, env=env)
+    ppo = IPPO(args, env=env)
     ppo.lr_scheduler = DefaultPPOAnnealing(ppo)
-    ppo.addCallbacks(PrintAverageReward(ppo, 1000))
+    ppo.addCallbacks(PrintAverageReward(ppo, 1))
     ppo.addCallbacks(AnnealEntropy(ppo, 1.0, 0.5, args.concavity_entropy))
-    ppo.addCallbacks(SaveCheckpoint(ppo))
 
     finder = ParallelFindReferencePolicy(env, ppo)
     finder.find()
