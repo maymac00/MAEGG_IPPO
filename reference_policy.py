@@ -161,6 +161,12 @@ class ParallelFindReferencePolicy(FindReferencePolicy):
         except RuntimeError:
             pass
 
+        def _finish_training(self):
+            pass
+
+        self.ppo._finish_training = _finish_training.__get__(self.ppo)
+
+
         p_t, result, id = task
         self.ppo.train(set_agents=p_t)
         result[id] = self.ppo.agents[id]
@@ -187,7 +193,7 @@ class ParallelFindReferencePolicy(FindReferencePolicy):
                 p.join()
 
             for i in self.ppo.agents.keys():
-                self.policies[t][i] = d[i]
+                self.policies[t][i] = copy.deepcopy(d[i])
 
 
 if __name__ == "__main__":

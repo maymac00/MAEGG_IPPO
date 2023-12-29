@@ -5,6 +5,7 @@ from IndependentPPO.hypertuning import DecreasingCandidatesTPESampler
 import optuna
 import os
 
+
 # TODO: Fix how i save the ppo parameters into config.json. I should save params for each agent. Now config.json is
 #  useless for AutoTunedFRP
 class AutoTunedFRP(ParallelFindReferencePolicy):
@@ -14,19 +15,26 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
         self.study = {
             k: optuna.create_study(
                 direction="maximize",
-                study_name=self.ppo.init_args.tag+"_"+str(k),
+                study_name=self.ppo.init_args.tag + "_" + str(k),
                 storage=f"sqlite:///{self.ppo.init_args.save_dir}/{self.ppo.init_args.tag}/autotune_reference_policy_{k}.db",
                 load_if_exists=True,
                 sampler=DecreasingCandidatesTPESampler(initial_n_ei_candidates=initial_candidates),
             ) for k in self.ppo.r_agents}
 
-    def run_one(self, i):
+    def _parallel_training(self, task):
         """
         Custom optuna loop for this class that runs just one trial
         :param i: non-frozen agent key
         :return:
         """
 
+        def _finish_training(self):
+            pass
+
+        self.ppo._finish_training = _finish_training.__get__(self.ppo)
+
+
+        p_t, result, i = task
         # Pre trial
         pass
 
@@ -40,9 +48,11 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
 
         # Run objective
         try:
-            self.ppo.train()
+            self.ppo.train(set_agents=p_t)
+            result[i] = self.ppo.agents[i]
             acc_return = self.evaluate(n_simulations=100)
             value = acc_return[i]
+
         except Exception as e:
             raise e
 
@@ -57,21 +67,6 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
         print(
             f"Trial for agent {i} completed with value {value}.")
         return value
-
-    def compute_best_response(self, t):
-        """
-        Compute the best response to the current policy
-        :param t:
-        :return:
-        """
-        self.policies.append({k: None for k in self.ppo.r_agents})
-        for i in self.ppo.agents.keys():
-            p_t = copy.deepcopy(self.policies[t - 1])
-            for aux in p_t.values():
-                aux.freeze()
-            p_t[i].unfreeze()
-            self.run_one(i)
-            self.policies[t][i] = copy.deepcopy(self.ppo.agents[i])
 
 
 if __name__ == "__main__":
@@ -88,9 +83,10 @@ if __name__ == "__main__":
     env = NormalizeReward(env)
 
     args = args_from_json("/home/arnau/PycharmProjects/MAEGG_IPPO/hyperparameters/tiny.json")
+    args.tot_steps = 5000
     ppo = IPPO(args, env=env)
     ppo.lr_scheduler = DefaultPPOAnnealing(ppo)
-    ppo.addCallbacks(PrintAverageReward(ppo, 50))
+    ppo.addCallbacks(PrintAverageReward(ppo, 1))
     ppo.addCallbacks(AnnealEntropy(ppo, 1.0, 0.5, args.concavity_entropy))
 
     atfrp = AutoTunedFRP(env, ppo)
