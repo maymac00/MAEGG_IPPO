@@ -5,7 +5,8 @@ from IndependentPPO.hypertuning import DecreasingCandidatesTPESampler
 import optuna
 import os
 
-
+# TODO: Fix how i save the ppo parameters into config.json. I should save params for each agent. Now config.json is
+#  useless for AutoTunedFRP
 class AutoTunedFRP(ParallelFindReferencePolicy):
     def __init__(self, env, ppo, warm_up=5, load_from_ckpt=None, initial_candidates=12, **kwargs):
         super().__init__(env, ppo, warm_up=warm_up, load_from_ckpt=load_from_ckpt, **kwargs)
@@ -18,11 +19,6 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
                 load_if_exists=True,
                 sampler=DecreasingCandidatesTPESampler(initial_n_ei_candidates=initial_candidates),
             ) for k in self.ppo.r_agents}
-
-        # Morph ppo to not save anything with monkey patching
-        def _finish_training(self):
-            pass
-        self.ppo._finish_training = _finish_training.__get__(self.ppo)
 
     def run_one(self, i):
         """

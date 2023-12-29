@@ -41,6 +41,12 @@ class FindReferencePolicy:
             ch.setFormatter(formatter)
             self.logger.addHandler(ch)
 
+        # Morph ppo to not save anything with monkey patching
+        def _finish_training(self):
+            pass
+
+        self.ppo._finish_training = _finish_training.__get__(self.ppo)
+
     def evaluate(self, n_simulations=100):
         agents = self.ppo.agents
         if isinstance(self.env, NormalizeReward):
@@ -88,6 +94,8 @@ class FindReferencePolicy:
 
             # Set current state to the last joint policy
             self.ppo.agents = self.policies[t]
+
+            self.ppo.save_experiment_data(folder=f"{self.ppo.save_dir}/{self.ppo.tag}/AT_RP_it_{t}")
 
             self.compute_metrics(t)  # Compute returns and distances
 
