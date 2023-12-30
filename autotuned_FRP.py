@@ -52,11 +52,17 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
         try:
             self.ppo.train(set_agents=p_t)
             result[i] = self.ppo.agents[i]
-            acc_return = self.evaluate(n_simulations=100)
-            value = acc_return[i]
 
         except Exception as e:
             raise e
+
+        # If trial number < than warm up, we set optuna trial to fail
+        if trial.number < self.warm_up_its:
+            self.study[i].tell(trial, state=optuna.trial.TrialState.FAIL)
+            return None
+
+        acc_return = self.evaluate(n_simulations=100)
+        value = acc_return[i]
 
         trial.set_user_attr("acc_return_per_agent", list(acc_return))
         for k, v in self.ppo.__dict__.items():
@@ -85,6 +91,7 @@ if __name__ == "__main__":
     env = NormalizeReward(env)
 
     args = args_from_json("hyperparameters/tiny.json")
+    args.tot_steps = 5000
     ppo = IPPO(args, env=env)
     ppo.lr_scheduler = DefaultPPOAnnealing(ppo)
     ppo.addCallbacks(PrintAverageReward(ppo, 5))
