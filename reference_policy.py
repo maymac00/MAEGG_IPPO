@@ -17,7 +17,8 @@ import torch.multiprocessing as mp
 
 
 class FindReferencePolicy:
-    def __init__(self, env, ppo, warm_up=5, load_from_ckpt=None, **kwargs):
+    def __init__(self, env, ppo, warm_up=2, load_from_ckpt=None, **kwargs):
+        self.historical_rewards = []
         self.env = env
         self.ppo = ppo
         self.policies = []
@@ -47,6 +48,29 @@ class FindReferencePolicy:
 
         self.ppo._finish_training = _finish_training.__get__(self.ppo)
 
+    def save_data(self):
+        """
+        Save returns as a csv file. If file already exists rewrite it. The csv file has to be formatted to be read by
+        pandas. The first row is the header, the first column is the index which corresponds to iteration.
+        The next columns are the returns of each agent followed by some statistics of the returns. The distance metric
+        is also saved as the last column.
+        :return:
+        """
+        folder = f"{self.ppo.save_dir}/{self.ppo.tag}"
+        import os
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        # Build numpy array
+        data = np.zeros((len(self.returns), 2 * self.ppo.n_agents + 1))
+        for i, r in enumerate(self.returns):
+            data[i, 0] = i
+            data[i, 1:1 + self.ppo.n_agents] = r
+
+        data[:, 1 + self.ppo.n_agents] = self.distances
+
+        # Save numpy array
+        np.savetxt(f"{folder}/returns.csv", data, delimiter=",")
+
     def evaluate(self, n_simulations=100):
         agents = self.ppo.agents
         if isinstance(self.env, NormalizeReward):
@@ -55,34 +79,33 @@ class FindReferencePolicy:
             ag.actor.eval_mode = True
         # Run a simulation of the trained agents
 
-        acc_reward = np.zeros(len(agents))
+        acc_rewards = np.zeros((n_simulations, len(agents)))
         for sim in range(n_simulations):
             obs, info = self.env.reset()
             done = [False] * len(agents)
             while not all(done):
                 actions = [agents[i].actor.predict(obs[i]) for i in range(len(agents))]
                 obs, rewards, done, info = self.env.step(actions)
-                acc_reward += rewards
+                acc_rewards[sim, :] += rewards
                 # env.render()
 
         if isinstance(self.env, NormalizeReward):
             self.env.active = True
         for ag in agents.values():
             ag.actor.eval_mode = False
+        self.historical_rewards.append(acc_rewards)
+        return acc_rewards.mean(axis=0)
 
-        return acc_reward / n_simulations
-
-    def find(self):
+    def find(self, t_max=10):
         r = self.evaluate(n_simulations=10)
         print(f"r_o : {r}")
-        epsilon = 0.1
+        epsilon = 0.05
 
         d = np.infty
         self.policies = [{k: v for k, v in self.ppo.agents.items()}]
         self.returns = [r]
         self.distances = [d]
         t = 0
-        t_max = 10
         while not self.stop_condition(t, epsilon, t_max):
             t += 1
             self.logger.info(f"==============================")
@@ -98,6 +121,8 @@ class FindReferencePolicy:
             self.ppo.save_experiment_data(folder=f"{self.ppo.save_dir}/{self.ppo.tag}/AT_RP_it_{t}")
 
             self.compute_metrics(t)  # Compute returns and distances
+
+            # self.save_data()
 
             self.logger.info(f"Return of pi_t : {self.returns[t]}")
             self.logger.info(f"Distance metric: {self.distances[t]}")
@@ -163,7 +188,7 @@ class ParallelFindReferencePolicy(FindReferencePolicy):
 
         self.ppo._finish_training = _finish_training.__get__(self.ppo)
 
-        p_t, result, id = task
+        p_t, result, id, t = task
         self.ppo.train(set_agents=p_t)
         result[id] = self.ppo.agents[id]
 
@@ -178,7 +203,7 @@ class ParallelFindReferencePolicy(FindReferencePolicy):
                 for aux in p_t.values():
                     aux.freeze()
                 p_t[i].unfreeze()
-                tasks.append((p_t, d, i))
+                tasks.append((p_t, d, i, t))
 
             processes = []
             for i in range(self.ppo.n_agents):
@@ -194,6 +219,14 @@ class ParallelFindReferencePolicy(FindReferencePolicy):
 
 
 if __name__ == "__main__":
+    from EthicalGatheringGame import MAEGG
+    from EthicalGatheringGame.presets import tiny, medium
+    from EthicalGatheringGame.wrappers import NormalizeReward
+    from IndependentPPO import IPPO
+    from IndependentPPO.callbacks import AnnealEntropy, PrintAverageReward, TensorBoardLogging
+    from IndependentPPO.lr_schedules import DefaultPPOAnnealing
+    from IndependentPPO.config import args_from_json
+
     tiny["we"] = [1, 99]
     env = gym.make("MultiAgentEthicalGathering-v1", **tiny)
     env = NormalizeReward(env)
