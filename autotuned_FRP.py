@@ -15,7 +15,7 @@ from reference_policy import ParallelFindReferencePolicy
 # TODO: Fix how i save the ppo parameters into config.json. I should save params for each agent. Now config.json is
 #  useless for AutoTunedFRP
 class AutoTunedFRP(ParallelFindReferencePolicy):
-    def __init__(self, env, ppo, tmax=10, warm_up=5, load_from_ckpt=None, initial_candidates=12, **kwargs):
+    def __init__(self, env, ppo, tmax=10, warm_up=2, load_from_ckpt=None, initial_candidates=12, **kwargs):
         super().__init__(env, ppo, tmax=tmax, warm_up=warm_up, load_from_ckpt=load_from_ckpt, **kwargs)
         os.makedirs(f"{self.ppo.init_args.save_dir}/{self.ppo.init_args.tag}", exist_ok=True)
         self.study = {
@@ -27,6 +27,11 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
                 sampler=DecreasingCandidatesTPESampler(initial_n_ei_candidates=initial_candidates),
             ) for k in self.ppo.r_agents}
 
+        if load_from_ckpt is not None:
+            # We set the samplers to the number of trials
+            for k in self.ppo.r_agents:
+                self.study[k].sampler.trial_count = len(self.study[k].trials)
+
     def _parallel_training(self, task):
         """
         Custom optuna loop for this class that runs just one trial
@@ -34,27 +39,30 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
         :return:
         """
         th.set_num_threads(1)
-
-        # self.ppo.addCallbacks(TensorBoardLogging(ppo, log_dir=f"{args.save_dir}/{args.tag}/log", f=3))
+        p_t, result, i, t = task
+        # Pre trial
+        pass
 
         def _finish_training(self):
             pass
 
         self.ppo._finish_training = _finish_training.__get__(self.ppo)
 
-        # self.ppo.callbacks.append(log)
-
-        p_t, result, i, t = task
-        # Pre trial
-        pass
-
         # Create trial
         trial = self.study[i].ask()
+        self.ppo.run_name = f"it_{t}_ag_" + str(i)
+        self.ppo.addCallbacks(
+            TensorBoardLogging(self.ppo, log_dir=f"{self.ppo.save_dir}/{self.ppo.tag}/log/{self.ppo.run_name}",
+                               f=3 + i))
 
         # Pre objective. Here we change PPO's parameters
-        self.ppo.actor_lr = trial.suggest_float("actor_lr", 0.000005, 0.001)
-        self.ppo.critic_lr = trial.suggest_float("critic_lr", 0.00005, 0.01)
-        self.ppo.ent_coef = trial.suggest_float("ent_coef", 0.0001, 0.1)
+        self.ppo.init_args.actor_lr = trial.suggest_float("actor_lr", 0.000005, 0.001)
+        self.ppo.init_args.critic_lr = trial.suggest_float("critic_lr", 0.00005, 0.01)
+        self.ppo.init_args.ent_coef = trial.suggest_float("ent_coef", 0.0001, 0.1)
+
+        self.logger.info(f"Trial {trial.number} for agent {i} started with parameters: ")
+        self.logger.info(
+            f"actor_lr: {self.ppo.init_args.actor_lr}, critic_lr: {self.ppo.init_args.critic_lr}, ent_coef: {self.ppo.init_args.ent_coef}")
 
         aux = self.ppo.run_name
         self.ppo.run_name = self.ppo.run_name + f"it_{t}_ag_" + str(i)
@@ -110,17 +118,14 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
             ks = max(ks, kstat)
         self.logger.info(f"Kolmogorov-Smirnov statistic: {ks}. Should we stop?: {ks < 0.05}")
 
-        # Calc t-test
-        t_test = -np.infty
-        p_value = np.infty
+        # Ttest
+        p = np.infty
         for ag in range(self.ppo.n_agents):
-            t, p = ttest_rel(self.historical_rewards[-1][:, ag], self.historical_rewards[-2][:, ag])
-            p_value = min(p_value, p)
-            t_test = max(t_test, t)
-        self.logger.info(f"t-test statistic: {t_test}")
-        self.logger.info(f"p-value: {p_value}. Should we stop?: {p_value > 0.05}")
+            t, p_value = ttest_rel(self.historical_rewards[-1][:, ag], self.historical_rewards[-2][:, ag])
+            p = min(p, p_value)
+        self.logger.info(f"Paired-sample t-test p-value: {p}. Should we stop?: {p > 0.05}")
 
-        return p_value
+        return ks
 
     def stop_condition(self, t, epsilon, t_max):
         if t >= t_max:
@@ -129,7 +134,7 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
             return False
         if self.distances[-1] == np.infty or self.distances[-1] == -np.infty:
             return False
-        return self.distances[-1] > epsilon
+        return self.distances[-1] < epsilon
 
 
 if __name__ == "__main__":
@@ -145,13 +150,11 @@ if __name__ == "__main__":
     preset["we"] = [1, 10]
     env = MAEGG(**preset)
     env = NormalizeReward(env)
-
     args = args_from_json("hyperparameters/medium.json")
     ppo = IPPO(args, env=env)
     ppo.lr_scheduler = DefaultPPOAnnealing(ppo)
     printer = PrintAverageReward(ppo, 5000)
-    ppo.addCallbacks(printer)
-    ppo.addCallbacks(AnnealEntropy(ppo, 1.0, 0.3, args.concavity_entropy))
-
-    atfrp = AutoTunedFRP(env, ppo)
+    ppo.addCallbacks(printer, private=True)
+    ppo.addCallbacks(AnnealEntropy(ppo, 1.0, 0.3, args.concavity_entropy), private=True)
+    atfrp = AutoTunedFRP(env, ppo, tmax=20, warm_up=2, initial_candidates=6, load_from_ckpt="jro/EGG_DATA/autotuned_reference_policy_try1/AT_RP_it_10")
     atfrp.find()

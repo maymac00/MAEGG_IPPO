@@ -2,18 +2,12 @@ import copy
 import logging
 import time
 
-from EthicalGatheringGame import MAEGG
-from EthicalGatheringGame.presets import tiny, small, medium, large
-from EthicalGatheringGame.wrappers import NormalizeReward
-from IndependentPPO import ParallelIPPO, IPPO
-from IndependentPPO.callbacks import AnnealEntropy, PrintAverageReward, TensorBoardLogging, SaveCheckpoint
-from IndependentPPO.lr_schedules import DefaultPPOAnnealing, IndependentPPOAnnealing
-from IndependentPPO.config import args_from_json
 import torch as th
 import gym
-import matplotlib
 import numpy as np
 import torch.multiprocessing as mp
+from EthicalGatheringGame.wrappers import NormalizeReward
+from IndependentPPO.config import args_from_json
 
 
 class FindReferencePolicy:
@@ -31,6 +25,7 @@ class FindReferencePolicy:
             setattr(self, k, v)
 
         if load_from_ckpt is not None:
+            self.warm_up_its = 0
             self.ppo.load_checkpoint(load_from_ckpt)
 
         self.logger = logging.getLogger("FindReferencePolicy")
@@ -46,7 +41,8 @@ class FindReferencePolicy:
         def _finish_training(self):
             pass
 
-        self.ppo._finish_training = _finish_training.__get__(self.ppo)
+        if self.ppo is not None:
+            self.ppo._finish_training = _finish_training.__get__(self.ppo)
 
     def save_data(self):
         """
@@ -182,13 +178,13 @@ class ParallelFindReferencePolicy(FindReferencePolicy):
 
     def _parallel_training(self, task):
         th.set_num_threads(1)
+        p_t, result, id, t = task
 
         def _finish_training(self):
             pass
 
         self.ppo._finish_training = _finish_training.__get__(self.ppo)
 
-        p_t, result, id, t = task
         self.ppo.train(set_agents=p_t)
         result[id] = self.ppo.agents[id]
 
@@ -217,25 +213,34 @@ class ParallelFindReferencePolicy(FindReferencePolicy):
             for i in self.ppo.agents.keys():
                 self.policies[t][i] = copy.deepcopy(d[i])
 
+    def getPPO(self):
+        args = args_from_json("hyperparameters/medium.json")
+        args.tot_steps = 10000
+        ppo = IPPO(args, env=env)
+        ppo.lr_scheduler = DefaultPPOAnnealing(ppo)
+        ppo.addCallbacks(PrintAverageReward(ppo, 1), private=True)
+        ppo.addCallbacks(AnnealEntropy(ppo, 1.0, 0.5, args.concavity_entropy), private=True)
+        return ppo
+
 
 if __name__ == "__main__":
     from EthicalGatheringGame import MAEGG
     from EthicalGatheringGame.presets import tiny, medium
     from EthicalGatheringGame.wrappers import NormalizeReward
-    from IndependentPPO import IPPO
+    from IndependentPPO import IPPO, ParallelIPPO
     from IndependentPPO.callbacks import AnnealEntropy, PrintAverageReward, TensorBoardLogging
     from IndependentPPO.lr_schedules import DefaultPPOAnnealing
     from IndependentPPO.config import args_from_json
 
-    tiny["we"] = [1, 99]
-    env = gym.make("MultiAgentEthicalGathering-v1", **tiny)
+    medium["we"] = [1, 99]
+    env = gym.make("MultiAgentEthicalGathering-v1", **medium)
     env = NormalizeReward(env)
-    args = args_from_json("hyperparameters/tiny.json")
+    args = args_from_json("hyperparameters/medium.json")
     args.tot_steps = 30000
-    ppo = IPPO(args, env=env)
-    ppo.lr_scheduler = DefaultPPOAnnealing(ppo)
-    ppo.addCallbacks(PrintAverageReward(ppo, 1))
-    ppo.addCallbacks(AnnealEntropy(ppo, 1.0, 0.5, args.concavity_entropy))
+    outerppo = IPPO(args, env=env)
+    outerppo.lr_scheduler = DefaultPPOAnnealing(outerppo)
+    outerppo.addCallbacks(PrintAverageReward(outerppo, 1), private=True)
+    outerppo.addCallbacks(AnnealEntropy(outerppo, 1.0, 0.5, args.concavity_entropy), private=True)
 
-    finder = ParallelFindReferencePolicy(env, ppo)
+    finder = ParallelFindReferencePolicy(env, outerppo)
     finder.find()
