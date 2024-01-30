@@ -130,7 +130,7 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
             _, p_less = ttest_ind(np.array(self.historical_rewards[-1][:, ag]) - bound, self.historical_rewards[-2][:, ag], alternative='less')
             # Choose the maximum p-value
             pval = max(p_less, p_greater)
-            p = min(p, pval)
+            p = min(p, autotuned_reference_policy_try1pval)
         self.logger.info(f"Paired-sample t-test p-value: {p}. Should we stop?: {p > 0.05}")
 
         return ks
