@@ -92,10 +92,9 @@ class FindReferencePolicy:
         self.historical_rewards.append(acc_rewards)
         return acc_rewards.mean(axis=0)
 
-    def find(self, t_max=10):
+    def find(self, t_max=10, epsilon=0.15):
         r = self.evaluate(n_simulations=10)
         print(f"r_o : {r}")
-        epsilon = 0.05
 
         d = np.infty
         self.policies = [{k: v for k, v in self.ppo.agents.items()}]

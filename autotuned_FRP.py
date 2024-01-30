@@ -163,5 +163,5 @@ if __name__ == "__main__":
     ppo.lr_scheduler = DefaultPPOAnnealing(ppo)
     printer = PrintAverageReward(ppo, 5000)
     ppo.addCallbacks(printer, private=True)
-    atfrp = AutoTunedFRP(env, ppo, tmax=20, warm_up=2, initial_candidates=6)
+    atfrp = AutoTunedFRP(env, ppo, tmax=20, warm_up=2, initial_candidates=6, load_from_ckpt="jro/EGG_DATA/autotuned_reference_policy_try1/AT_RP_it_5")
     atfrp.find(epsilon=0.15, t_max=20)
