@@ -8,14 +8,15 @@ import matplotlib
 matplotlib.use('TkAgg')
 import gym
 
-medium["we"] = [1, 10]
+medium["we"] = [1, 0]
 env = gym.make("MultiAgentEthicalGathering-v1", **medium)
 # env = NormalizeReward(env)
 
-agents = IPPO.actors_from_file("jro/EGG_DATA/autotuned_reference_policy_try1/AT_RP_it_6")
+agents = IPPO.actors_from_file("jro/EGG_DATA/ethical_medium_we0_try1/ethical_medium_we0_try1/2500_60000_1")
 env.setTrack(True)
 env.setStash(True)
 env.reset()
+history = []
 for r in range(100):
     obs, _ = env.reset()
     acc_reward = [0] * env.n_agents
@@ -26,5 +27,6 @@ for r in range(100):
         acc_reward = [acc_reward[i] + reward[i] for i in range(env.n_agents)]
         # env.render(mode="partial_observability")
     print(f"Epsiode {r}: {acc_reward}")
+    history.append(acc_reward)
 env.plot_results("median")
 env.print_results()

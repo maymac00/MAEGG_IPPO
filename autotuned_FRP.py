@@ -3,7 +3,7 @@ import time
 from collections import deque
 
 import numpy as np
-from scipy.stats import ttest_rel, ks_2samp
+from scipy.stats import ttest_rel, ks_2samp, ttest_ind
 from torch.utils.tensorboard import SummaryWriter
 import optuna
 import torch as th
@@ -53,12 +53,14 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
         self.ppo.run_name = f"it_{t}_ag_" + str(i)
         self.ppo.addCallbacks(
             TensorBoardLogging(self.ppo, log_dir=f"{self.ppo.save_dir}/{self.ppo.tag}/log/{self.ppo.run_name}",
-                               f=3 + i))
-
+                               f=20 + i))
+        self.ppo.init_args.concavity_entropy = trial.suggest_float("concavity", 1.0, 4.0, step=0.5)
+        final_value = trial.suggest_float("final_value", 0.2, 0.6, step=0.2)
+        ppo.addCallbacks(AnnealEntropy(ppo, 1.0, final_value, self.ppo.init_args.concavity_entropy), private=True)
         # Pre objective. Here we change PPO's parameters
-        self.ppo.init_args.actor_lr = trial.suggest_float("actor_lr", 0.000005, 0.001)
-        self.ppo.init_args.critic_lr = trial.suggest_float("critic_lr", 0.00005, 0.01)
-        self.ppo.init_args.ent_coef = trial.suggest_float("ent_coef", 0.0001, 0.1)
+        self.ppo.init_args.actor_lr = trial.suggest_float("actor_lr", 2.5e-05, 10.5e-5, step=0.5e-5)
+        self.ppo.init_args.critic_lr = trial.suggest_float("critic_lr", 0.0002, 0.001, step=0.0001)
+        self.ppo.init_args.ent_coef = trial.suggest_float("ent_coef", 0.02, 0.09, step=0.01)
 
         self.logger.info(f"Trial {trial.number} for agent {i} started with parameters: ")
         self.logger.info(
@@ -116,13 +118,19 @@ class AutoTunedFRP(ParallelFindReferencePolicy):
         for ag in range(self.ppo.n_agents):
             kstat, p_value = ks_2samp(self.historical_rewards[-1][:, ag], self.historical_rewards[-2][:, ag])
             ks = max(ks, kstat)
-        self.logger.info(f"Kolmogorov-Smirnov statistic: {ks}. Should we stop?: {ks < 0.05}")
+        self.logger.info(f"Kolmogorov-Smirnov statistic: {ks}. Should we stop?: {ks < 0.15}")
 
-        # Ttest
+        # TOST test (two one-sided t-test)
         p = np.infty
+        # Magnitude of region of similarity
+        bound = 1
         for ag in range(self.ppo.n_agents):
-            t, p_value = ttest_rel(self.historical_rewards[-1][:, ag], self.historical_rewards[-2][:, ag])
-            p = min(p, p_value)
+            # Unpaired two-sample t-test
+            _, p_greater = ttest_ind(np.array(self.historical_rewards[-1][:, ag]) + bound, self.historical_rewards[-2][:, ag], alternative='greater')
+            _, p_less = ttest_ind(np.array(self.historical_rewards[-1][:, ag]) - bound, self.historical_rewards[-2][:, ag], alternative='less')
+            # Choose the maximum p-value
+            pval = max(p_less, p_greater)
+            p = min(p, pval)
         self.logger.info(f"Paired-sample t-test p-value: {p}. Should we stop?: {p > 0.05}")
 
         return ks
@@ -155,6 +163,5 @@ if __name__ == "__main__":
     ppo.lr_scheduler = DefaultPPOAnnealing(ppo)
     printer = PrintAverageReward(ppo, 5000)
     ppo.addCallbacks(printer, private=True)
-    ppo.addCallbacks(AnnealEntropy(ppo, 1.0, 0.3, args.concavity_entropy), private=True)
-    atfrp = AutoTunedFRP(env, ppo, tmax=20, warm_up=2, initial_candidates=6, load_from_ckpt="jro/EGG_DATA/autotuned_reference_policy_try1/AT_RP_it_10")
-    atfrp.find()
+    atfrp = AutoTunedFRP(env, ppo, tmax=20, warm_up=2, initial_candidates=6)
+    atfrp.find(epsilon=0.15, t_max=20)
