@@ -8,17 +8,17 @@ import matplotlib
 matplotlib.use('TkAgg')
 import gym
 
-medium["we"] = [1, 10]
+medium["we"] = [1, 0]
 env = gym.make("MultiAgentEthicalGathering-v1", **medium)
 # env = NormalizeReward(env)
 
-agents = IPPO.actors_from_file("jro/EGG_DATA/ethical_medium_we10_try2/ethical_medium_we10_try2/2500_60000_1")
+agents = IPPO.actors_from_file("jro/EGG_DATA/ethical_medium_we0_try2/ethical_medium_we0_try2/2500_60000_1_(28)")
 env.setTrack(True)
 env.setStash(True)
 env.reset()
 history = []
 mo_history = []
-for r in range(10):
+for r in range(100):
     obs, _ = env.reset()
     acc_reward = [0] * env.n_agents
     for i in range(env.max_steps):
