@@ -32,28 +32,28 @@ class MediumSizeOptimize(OptimizerMAEGG):
             trial.set_user_attr(k, v)
 
         ppo = ParallelIPPO(self.args, env=env)
-        """for k in range(self.args.n_agents):
-            ppo.lr_scheduler = IndependentPPOAnnealing(ppo, {
-                k: {
-                    "actor_lr": trial.suggest_float(f"actor_lr_{k}", 0.000005, 0.0001, step=0.00001),
-                    "critic_lr": trial.suggest_float(f"critic_lr_{k}", 0.00005, 0.001, step=0.0001)
-                }
-            })"""
+
         ppo.lr_scheduler = IndependentPPOAnnealing(ppo, {
+            k: {
+                "actor_lr": trial.suggest_float(f"actor_lr_{k}", 0.00001, 0.0001, step=0.00001),
+                "critic_lr": trial.suggest_float(f"critic_lr_{k}", 0.0002, 0.001, step=0.0001)
+            } for k in range(self.args.n_agents)
+        })
+        """ppo.lr_scheduler = IndependentPPOAnnealing(ppo, {
             0: {
                 "actor_lr": 9.5e-05,
                 "critic_lr": 0.00065
             },
             1: {
-                "actor_lr": 2.5e-05,
-                "critic_lr": 0.00025
+                "actor_lr": 9.5e-05,
+                "critic_lr": 0.00065
             },
             2: {
                 "actor_lr": 5.5e-05,
                 "critic_lr": 0.00095
             },
         })
-
+        """
         self.args.concavity_entropy = trial.suggest_float("concavity_entropy", 0.0, 4.0, step=0.5)
         final_value = trial.suggest_float("final_value", 0.0, 1.0, step=0.2)
         ppo.addCallbacks([
@@ -75,6 +75,11 @@ class MediumSizeOptimize(OptimizerMAEGG):
 
 if __name__ == "__main__":
     args = args_from_json("hyperparameters/medium.json")
-    medium["we"] = [1, 10]
+    # parse we from the args.tag string. Example: "mediumwe0.9_try1" -> we = 0.9
+    try:
+        we = float(args.tag.split("we")[1].split("_")[0])
+    except:
+        we = 10
+    medium["we"] = [1, we]
     opt = MediumSizeOptimize("maximize", medium, args, n_trials=1, save=args.save_dir, study_name=args.tag)
     opt.optimize()
