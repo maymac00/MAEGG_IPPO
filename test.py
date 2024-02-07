@@ -1,5 +1,5 @@
 from EthicalGatheringGame import MAEGG, NormalizeReward
-from EthicalGatheringGame.presets import tiny, small, medium
+from EthicalGatheringGame.presets import tiny, small, medium, large
 from IndependentPPO import IPPO
 from IndependentPPO.agent import SoftmaxActor
 from IndependentPPO.ActionSelection import *
@@ -8,11 +8,11 @@ import matplotlib
 matplotlib.use('TkAgg')
 import gym
 
-medium["we"] = [1, 0.91]
-env = gym.make("MultiAgentEthicalGathering-v1", **medium)
+large["we"] = [1, 0.91]
+env = gym.make("MultiAgentEthicalGathering-v1", **large)
 # env = NormalizeReward(env)
 
-agents = IPPO.actors_from_file("jro/EGG_DATA/ethical_medium_we0_try2/ethical_medium_we0_try2/2500_60000_1_(8)")
+agents = IPPO.actors_from_file("jro/EGG_DATA/ethical_large_we0_try3/ethical_large_we0_try3/2500_80000_1_(8)")
 env.setTrack(True)
 env.setStash(True)
 env.reset()
@@ -27,8 +27,9 @@ for r in range(1000):
         obs, reward, done, info = env.step(actions)
         acc_reward = [acc_reward[i] + reward[i] for i in range(env.n_agents)]
         # env.render(mode="partial_observability")
-    print(f"Epsiode {r}: {acc_reward} \t Agents (V_0, V_e):\t ({env.agents[0].r_vec}), \t({env.agents[1].r_vec}), \t({env.agents[2].r_vec})")
-    mo_history.append([env.agents[0].r_vec, env.agents[1].r_vec, env.agents[2].r_vec])
+
+    print(f"Epsiode {r}: {acc_reward} \t Agents (V_0, V_e): ", "\t".join([f"({env.agents[i].r_vec})" for i in range(env.n_agents)]))
+    mo_history.append([env.agents[i].r_vec for i in range(env.n_agents)])
     history.append(acc_reward)
 
 mo_history = np.array(mo_history)
