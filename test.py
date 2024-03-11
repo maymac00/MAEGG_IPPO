@@ -9,17 +9,18 @@ import matplotlib
 matplotlib.use('TkAgg')
 import gym
 
-large["we"] = [1, 0.91]
-env = gym.make("MultiAgentEthicalGathering-v1", **large)
+medium["we"] = [1, 0.91]
+env = gym.make("MultiAgentEthicalGathering-v1", **medium)
 # env = NormalizeReward(env)
 
-agents = IPPO.actors_from_file("EGG_DATA/ethical_large_we10_try2/ethical_large_we10_try2/2500_80000_1_(29)")
+agents = IPPO.actors_from_file("EGG_DATA/ethical_medium_we10_try3/ethical_medium_we10_try3/2500_60000_1_(28)")
 env.setTrack(True)
 env.setStash(True)
 env.reset()
 history = []
 mo_history = []
-for r in range(1000):
+db_full = 0
+for r in range(100):
     obs, _ = env.reset()
     acc_reward = [0] * env.n_agents
     for i in range(env.max_steps):
@@ -28,10 +29,12 @@ for r in range(1000):
         obs, reward, done, info = env.step(actions)
         acc_reward = [acc_reward[i] + reward[i] for i in range(env.n_agents)]
         # env.render(mode="partial_observability")
-    print(f"Epsiode {r}: {acc_reward} \t Agents (V_0, V_e): ", "\t\t".join([f"{np.round(env.agents[i].r_vec)}" for i in range(env.n_agents)]))
+    print(f"Epsiode {r}: {np.round(acc_reward, 2)} \t Agents (V_0, V_e): ", "\t".join([f"{np.round(env.agents[i].r_vec, 2)}" for i in range(env.n_agents)]))
     mo_history.append([env.agents[i].r_vec for i in range(env.n_agents)])
     history.append(acc_reward)
-
+    if info["sim_data"]["donation_box_full"] != -1:
+        db_full += 1
+print("Donation box full: ", db_full)
 mo_history = np.array(mo_history)
 history = np.array(history)
 # Print history mean
