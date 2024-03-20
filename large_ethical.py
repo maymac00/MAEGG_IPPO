@@ -2,7 +2,7 @@ import copy
 
 import gym
 from EthicalGatheringGame import NormalizeReward
-from EthicalGatheringGame.presets import medium
+from EthicalGatheringGame.presets import medium, large
 from IndependentPPO import ParallelIPPO
 from IndependentPPO.callbacks import TensorBoardLogging, SaveCheckpoint, Report2Optuna, AnnealEntropy, \
     PrintAverageReward
@@ -12,7 +12,7 @@ from hyper_tuning import OptimizerMAEGG, OptimizerMOMAGG
 from IndependentPPO.config import args_from_json
 
 
-class MediumSizeOptimize(OptimizerMAEGG):
+class LargeSizeOptimize(OptimizerMAEGG):
     def __init__(self, direction, env_config, ppo_config, study_name=None, save=None, n_trials=1, pruner=None):
         super().__init__(direction, env_config, ppo_config, study_name, save, n_trials,
                          pruner)
@@ -20,8 +20,8 @@ class MediumSizeOptimize(OptimizerMAEGG):
     def pre_objective_callback(self, trial):
         self.args = copy.deepcopy(self.ppo_config)
         self.args.save_dir += "/" + self.study_name
-        self.args.ent_coef = trial.suggest_float("ent_coef", 0.001, 0.1, step=0.001)
-        self.args.tot_steps = 30000000
+        self.args.ent_coef = trial.suggest_float("ent_coef", 0.02, 0.1, step=0.01)
+        self.args.tot_steps = 40000000
 
     def construct_ppo(self, trial):
         env = gym.make("MultiAgentEthicalGathering-v1", **self.env_config)
@@ -54,7 +54,6 @@ class MediumSizeOptimize(OptimizerMAEGG):
             },
         })
         """
-
         self.args.concavity_entropy = trial.suggest_float("concavity_entropy", 0.0, 4.0, step=0.5)
         final_value = trial.suggest_float("final_value", 0.0, 1.0, step=0.2)
         ppo.addCallbacks([
@@ -75,12 +74,12 @@ class MediumSizeOptimize(OptimizerMAEGG):
 
 
 if __name__ == "__main__":
-    args = args_from_json("hyperparameters/medium.json")
+    args = args_from_json("hyperparameters/large.json")
     # parse we from the args.tag string. Example: "mediumwe0.9_try1" -> we = 0.9
     try:
         we = float(args.tag.split("we")[1].split("_")[0])
     except:
         we = 10
-    medium["we"] = [1, we]
-    opt = MediumSizeOptimize("maximize", medium, args, n_trials=1, save=args.save_dir, study_name=args.tag)
+    large["we"] = [1, we]
+    opt = LargeSizeOptimize("maximize", large, args, n_trials=1, save=args.save_dir, study_name=args.tag)
     opt.optimize()

@@ -3,9 +3,10 @@ import copy
 import gym
 from EthicalGatheringGame import NormalizeReward
 from EthicalGatheringGame.presets import medium
-from IndependentPPO import ParallelIPPO
+
 from IndependentPPO.callbacks import TensorBoardLogging, SaveCheckpoint, Report2Optuna, AnnealEntropy, \
     PrintAverageReward
+from IndependentPPO import ParallelCIPPO
 from IndependentPPO.lr_schedules import DefaultPPOAnnealing, IndependentPPOAnnealing
 
 from hyper_tuning import OptimizerMAEGG, OptimizerMOMAGG
@@ -31,15 +32,15 @@ class MediumSizeOptimize(OptimizerMAEGG):
         for k, v in self.env_config.items():
             trial.set_user_attr(k, v)
 
-        ppo = ParallelIPPO(self.args, env=env)
+        ppo = ParallelCIPPO(self.args, env=env)
 
-        ppo.lr_scheduler = IndependentPPOAnnealing(ppo, {
+        """ppo.lr_scheduler = IndependentPPOAnnealing(ppo, {
             k: {
                 "actor_lr": trial.suggest_float(f"actor_lr_{k}", 0.00001, 0.0001, step=0.00001),
                 "critic_lr": trial.suggest_float(f"critic_lr_{k}", 0.0002, 0.001, step=0.0001)
             } for k in range(self.args.n_agents)
-        })
-        """ppo.lr_scheduler = IndependentPPOAnnealing(ppo, {
+        })"""
+        ppo.lr_scheduler = IndependentPPOAnnealing(ppo, {
             0: {
                 "actor_lr": 9.5e-05,
                 "critic_lr": 0.00065
@@ -53,12 +54,13 @@ class MediumSizeOptimize(OptimizerMAEGG):
                 "critic_lr": 0.00095
             },
         })
-        """
 
+        self.args.mult_lr = trial.suggest_float("lagran_multi_lr", 0.005, 0.07, step=0.015)
+        self.args.mult_init = trial.suggest_float("lagran_multi_init", 0.3, 0.8, step=0.1)
         self.args.concavity_entropy = trial.suggest_float("concavity_entropy", 0.0, 4.0, step=0.5)
         final_value = trial.suggest_float("final_value", 0.0, 1.0, step=0.2)
         ppo.addCallbacks([
-            PrintAverageReward(ppo, n=10000),
+            PrintAverageReward(ppo, n=5000),
             TensorBoardLogging(ppo, log_dir=f"{args.save_dir}/{args.tag}/log/{ppo.run_name}", f=50),
             SaveCheckpoint(ppo, 5000),
             AnnealEntropy(ppo, final_value=final_value, concavity=self.args.concavity_entropy),
@@ -77,10 +79,6 @@ class MediumSizeOptimize(OptimizerMAEGG):
 if __name__ == "__main__":
     args = args_from_json("hyperparameters/medium.json")
     # parse we from the args.tag string. Example: "mediumwe0.9_try1" -> we = 0.9
-    try:
-        we = float(args.tag.split("we")[1].split("_")[0])
-    except:
-        we = 10
-    medium["we"] = [1, we]
+
     opt = MediumSizeOptimize("maximize", medium, args, n_trials=1, save=args.save_dir, study_name=args.tag)
     opt.optimize()

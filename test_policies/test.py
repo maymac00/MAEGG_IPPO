@@ -1,3 +1,4 @@
+import numpy as np
 from EthicalGatheringGame import MAEGG, NormalizeReward
 from EthicalGatheringGame.presets import tiny, small, medium, large
 from IndependentPPO import IPPO
@@ -9,16 +10,19 @@ matplotlib.use('TkAgg')
 import gym
 
 large["we"] = [1, 0.91]
-env = gym.make("MultiAgentEthicalGathering-v1", **large)
+env = gym.make("MultiAgentEthicalGathering-v1", **medium)
 # env = NormalizeReward(env)
 
-agents = IPPO.actors_from_file("jro/EGG_DATA/ethical_large_we0_try3/ethical_large_we0_try3/2500_80000_1_(8)")
+agents = IPPO.actors_from_file("jro/EGG_DATA/CIPPO_medium/CIPPO_medium/2500_60000_1")
 env.setTrack(True)
 env.setStash(True)
 env.reset()
+aux_cont = [0] * env.n_agents
+aux_cost = [0] * env.n_agents
+last_apple_value = [0] * env.n_agents
 history = []
 mo_history = []
-for r in range(1000):
+for r in range(100):
     obs, _ = env.reset()
     acc_reward = [0] * env.n_agents
     for i in range(env.max_steps):
@@ -26,12 +30,18 @@ for r in range(1000):
 
         obs, reward, done, info = env.step(actions)
         acc_reward = [acc_reward[i] + reward[i] for i in range(env.n_agents)]
+
+        apple_diff = [env.agents[i].apples - last_apple_value[i] for i in range(env.n_agents)]
+        aux_cont = [aux_cont[i] + (1 if (env.agents[i].apples > env.survival_threshold and env.donation_box < env.donation_capacity and apple_diff[i] >=0) else 0) for i in range(env.n_agents)]
+        aux_cost = [aux_cost[i] + info["R'_E"][i] for i in range(env.n_agents)]
+        last_apple_value = [env.agents[i].apples for i in range(env.n_agents)]
         # env.render(mode="partial_observability")
 
     print(f"Epsiode {r}: {acc_reward} \t Agents (V_0, V_e): ", "\t".join([f"({env.agents[i].r_vec})" for i in range(env.n_agents)]))
     mo_history.append([env.agents[i].r_vec for i in range(env.n_agents)])
     history.append(acc_reward)
 
+print(f"Percentage of non praiseworthy actions {(np.array(aux_cost) / np.array(aux_cont))* 100}%")
 mo_history = np.array(mo_history)
 history = np.array(history)
 # Print history mean
