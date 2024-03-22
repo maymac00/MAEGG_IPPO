@@ -22,7 +22,7 @@ class LargeSizeOptimize(OptimizerMAEGG):
         self.args = copy.deepcopy(self.ppo_config)
         self.args.save_dir += "/" + self.study_name
         self.args.const_limit_1 = 3
-        self.args.const_limit_2= 3
+        self.args.const_limit_2 = 3
         # self.args.ent_coef = trial.suggest_float("ent_coef", 0.001, 0.1, step=0.001)
         self.args.ent_coef = 0.02
         self.args.tot_steps = 30000000
