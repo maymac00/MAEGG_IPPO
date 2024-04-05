@@ -6,7 +6,7 @@ from EthicalGatheringGame import NormalizeReward
 from EthicalGatheringGame.presets import large
 
 from IndependentPPO.callbacks import TensorBoardLogging, SaveCheckpoint, Report2Optuna, AnnealEntropy, \
-    PrintAverageReward
+    PrintAverageReward, AnnealActionFilter
 from IndependentPPO import ParallelCIPPO, CIPPO
 from IndependentPPO.lr_schedules import DefaultPPOAnnealing, IndependentPPOAnnealing
 
@@ -22,11 +22,11 @@ class LargeSizeCOptimize(OptimizerMAEGG):
     def pre_objective_callback(self, trial):
         self.args = copy.deepcopy(self.ppo_config)
         self.args.save_dir += "/" + self.study_name
-        self.args.const_limit_1 = trial.suggest_int("const_limit_1", 2, 6)
-        self.args.const_limit_2 = trial.suggest_int("const_limit_2", 2, 6)
+        self.args.constr_limit_1 = trial.suggest_int("constr_limit_1", 2, 6)
+        self.args.constr_limit_2 = trial.suggest_int("constr_limit_2", 2, 6)
         # self.args.ent_coef = trial.suggest_float("ent_coef", 0.001, 0.1, step=0.001)
         self.args.ent_coef = 0.04
-        self.args.tot_steps = 40000000
+        self.args.tot_steps = 50000000
 
     def construct_ppo(self, trial):
         env = gym.make("MultiAgentEthicalGathering-v1", **self.env_config)
@@ -59,11 +59,14 @@ class LargeSizeCOptimize(OptimizerMAEGG):
         # final_value = trial.suggest_float("final_value", 0.2, 1.0, step=0.2)
         final_value = 0.4
         ppo.addCallbacks([
-            PrintAverageReward(ppo, n=20, show_time=True),
+            PrintAverageReward(ppo, n=5000, show_time=True),
             TensorBoardLogging(ppo, log_dir=f"{args.save_dir}/{args.tag}/log/{ppo.run_name}", f=25),
             SaveCheckpoint(ppo, 5000),
             AnnealEntropy(ppo, final_value=final_value, concavity=self.args.concavity_entropy),
         ])
+        if self.args.anneal_action_filter:
+            ppo.addCallbacks(AnnealActionFilter(ppo))
+
         return ppo
 
     def objective(self, trial):
@@ -77,6 +80,7 @@ class LargeSizeCOptimize(OptimizerMAEGG):
 
 if __name__ == "__main__":
     args = args_from_json("hyperparameters/large.json")
+    args.n_cpus = 20
     # parse we from the args.tag string. Example: "mediumwe0.9_try1" -> we = 0.9
     eff_rate = 0.8
     large["efficiency"] = [0.85]*int(args.n_agents*eff_rate) + [0.2]*int(args.n_agents - eff_rate * args.n_agents)
