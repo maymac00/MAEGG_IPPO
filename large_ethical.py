@@ -31,7 +31,7 @@ class LargeSizeOptimize(OptimizerMAEGG):
             trial.set_user_attr(k, v)
 
         ppo = ParallelIPPO(self.args, env=env)
-        self.args.ent_coef = 0.04
+        self.args.ent_coef = trial.suggest_float("ent_coef", 0.06, 0.08, step=0.02)
         self.args.tot_steps = 50000000
 
         # We make groups of efficiency to reduce the amount of parameters to tune.
@@ -49,12 +49,11 @@ class LargeSizeOptimize(OptimizerMAEGG):
             for agent in group:
                 eff_dict[agent] = {"actor_lr": actorlr, "critic_lr": criticlr}
 
-
         ppo.lr_scheduler = IndependentPPOAnnealing(ppo, eff_dict)
         self.args.concavity_entropy = 2.0
-        final_value = trial.suggest_float("final_value", 0.0, 1.0, step=0.2)
+        final_value = 0.4
         ppo.addCallbacks([
-            PrintAverageReward(ppo, n=5000),
+            PrintAverageReward(ppo, n=5000, show_time=True),
             TensorBoardLogging(ppo, log_dir=f"{args.save_dir}/{args.tag}/log/{ppo.run_name}", f=50),
             SaveCheckpoint(ppo, 5000),
             AnnealEntropy(ppo, final_value=final_value, concavity=self.args.concavity_entropy),
@@ -85,5 +84,10 @@ if __name__ == "__main__":
     large["we"] = [1, we]
 
     print(large["efficiency"])
-    opt = LargeSizeOptimize("maximize", large, args, n_trials=1, save=args.save_dir, study_name=args.tag)
-    opt.optimize()
+
+    try:
+        opt = LargeSizeOptimize("maximize", large, args, n_trials=1, save=args.save_dir, study_name=args.tag)
+        opt.optimize()
+    except Exception as e:
+        opt = LargeSizeOptimize("maximize", large, args, n_trials=1, save=args.save_dir, study_name=args.tag)
+        opt.optimize()

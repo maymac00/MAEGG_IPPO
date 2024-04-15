@@ -13,25 +13,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 import gym
 
-# Setting up the environment
 
-eff_rate = 0.8
-db = 100
-we = 10
-
-large["we"] = [1, we]
-large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
-large["donation_capacity"] = db
-env = gym.make("MultiAgentEthicalGathering-v1", **large)
-# env = NormalizeReward(env)
-env.toggleTrack(True)
-env.reset()
-
-# Loading the agents
-agents = IPPO.actors_from_file(f"../EGG_DATA/db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/2500_100000_1")
-#agents = IPPO.actors_from_file("../EGG_DATA/db1_effrate0.6_we10_ECAI/db1_effrate0.6_we10_ECAI/2500_100000_1_(1)")
-
-# Parallel rollout function
 def _parallel_rollout(args):
     """
     Function corresponds to the parallel run. It runs a simulation of the environment and stores the results in a shared dictionary.
@@ -40,7 +22,7 @@ def _parallel_rollout(args):
     :return:
     """
     th.set_num_threads(1)
-    env, d, global_id = args
+    env, d, agents, global_id = args
     obs, _ = env.reset(seed=global_id)
     data = {}
     acc_reward = [0] * env.n_agents
@@ -60,39 +42,61 @@ def _parallel_rollout(args):
     d[global_id] = data
 
 
-# Running the simulation. Parallelized on batches of 5 simulations.
-n_sims = 200
+if __name__ == "__main__":
+    # Setting up the environment
 
-env.toggleTrack = True
-env.toggleStash = True
-stash = []
-so_rewards = np.zeros((n_sims, env.n_agents))
-mo_rewards = np.zeros((n_sims, env.n_agents, 2))
-with Manager() as manager:
-    batch_size = 5
-    solved = 0
-    d = manager.dict()
-    while solved < n_sims:
+    eff_rate = 0.6
+    db = 0
+    we = 10
+
+    large["we"] = [1, we]
+    large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
+    large["donation_capacity"] = db
+    env = gym.make("MultiAgentEthicalGathering-v1", **large)
+    # env = NormalizeReward(env)
+    env.toggleTrack(True)
+    env.reset()
+
+    # Loading the agents
+    agents = IPPO.actors_from_file(f"../EGG_DATA/db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/2500_100000_1_(1)")
+    #agents = IPPO.actors_from_file("../EGG_DATA/db1_effrate0.6_we10_ECAI/db1_effrate0.6_we10_ECAI/2500_100000_1_(1)")
+
+    # Running the simulation. Parallelized on batches of 5 simulations.
+    n_sims = 50
+
+    env.toggleTrack = True
+    env.toggleStash = True
+    stash = []
+    so_rewards = np.zeros((n_sims, env.n_agents))
+    mo_rewards = np.zeros((n_sims, env.n_agents, 2))
+
+    batch_size = 25
+
+    with Manager() as manager:
+
+        solved = 0
         d = manager.dict()
-        tasks = [(env, d, global_id) for global_id in range(solved, solved + batch_size)]
-        with Pool(batch_size) as p:
-            p.map(_parallel_rollout, tasks)
+        while solved < n_sims:
+            d = manager.dict()
+            tasks = [(env, d, agents, global_id) for global_id in range(solved, solved + batch_size)]
+            with Pool(batch_size) as p:
+                p.map(_parallel_rollout, tasks)
 
-        for i in range(solved, solved + batch_size):
-            stash.append(env.build_history_array(h=d[i]["history"]))
-            #h = copy.deepcopy(d[i]["history"])
-            #env.setHistory(h)
-            so_rewards[i] = d[i]["so"]
-            mo_rewards[i] = d[i]["mo"]
-            env.reset()
-        solved += batch_size
+            for i in range(solved, solved + batch_size):
+                stash.append(env.build_history_array(h=d[i]["history"]))
+                #h = copy.deepcopy(d[i]["history"])
+                #env.setHistory(h)
+                so_rewards[i] = d[i]["so"]
+                mo_rewards[i] = d[i]["mo"]
+                env.reset()
+            solved += batch_size
 
-# Print mean rewards per agent and objective
-print("\nMean reward per agent: ", '\t'.join([str(s) for s in so_rewards.mean(axis=0)]))
-print(f"\nMean mo reward per agent: ", '\t'.join([str(s) for s in mo_rewards.mean(axis=0)]))
+    # Print mean rewards per agent and objective
+    print("\nMean reward per agent: ", '\t'.join([str(s) for s in so_rewards.mean(axis=0)]))
+    print(f"\nMean mo reward per agent: ", '\t'.join([str(s) for s in mo_rewards.mean(axis=0)]))
 
-# Plotting the results
-env.toggleTrack = True
-env.setStash(stash)
-env.print_results()
-env.plot_results("median")
+    # Plotting the results
+    env.toggleTrack = True
+    env.setStash(stash)
+    env.print_results()
+    env.plot_results("median")
