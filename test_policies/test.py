@@ -15,7 +15,7 @@ large["we"] = [1, 0.91]
 env = gym.make("MultiAgentEthicalGathering-v1", **large)
 # env = NormalizeReward(env)
 
-agents = IPPO.actors_from_file("EGG_DATA/db1_effrate0.2_we10_ECAI/db1_effrate0.2_we10_ECAI/2500_100000_1")
+agents = IPPO.actors_from_file("../EGG_DATA/db100_effrate0.6_we10_ECAI/db100_effrate0.6_we10_ECAI/2500_100000_1_(2)")
 
 env.toggleTrack(True)
 env.toggleStash(True)
@@ -45,6 +45,11 @@ for r in range(100):
     history.append(acc_reward)
 
 print(f"Percentage of non praiseworthy actions {(np.array(aux_cost) / np.array(aux_cont))* 100}%")
+# Compute gini index
+tot_sum = sum([ag.apples for ag in env.agents.values()])
+freq = [ag.apples / tot_sum for ag in env.agents.values()]
+gini = 1 - sum([f ** 2 for f in freq])
+print(f"Gini index: {gini}")
 mo_history = np.array(mo_history)
 history = np.array(history)
 # Print history mean

@@ -48,11 +48,16 @@ def _parallel_rollout(args):
 
     # Calc gini index
     tot_sum = sum([ag.apples for ag in env.agents.values()])
+    mean = tot_sum / env.n_agents
     if tot_sum == 0:
         gini = 0
     else:
         gini = 1 - sum([(ag.apples / tot_sum) ** 2 for ag in env.agents.values()])
+
+    # Calc hoover index
+    hoover = sum([abs(ag.apples - mean) for ag in env.agents.values()]) / (2 * tot_sum)
     data["gini"] = gini
+    data["hoover"] = hoover
     d[global_id] = data
 
 
@@ -114,6 +119,7 @@ if __name__ == "__main__":
                         so_rewards = np.zeros((n_sims, env.n_agents))
                         mo_rewards = np.zeros((n_sims, env.n_agents, 2))
                         gini = np.zeros((n_sims))
+                        hoover = np.zeros((n_sims))
 
                         batch_size = args.n_cpus
 
@@ -133,6 +139,7 @@ if __name__ == "__main__":
                                     so_rewards[i] = d[i]["so"]
                                     mo_rewards[i] = d[i]["mo"]
                                     gini[i] = d[i]["gini"]
+                                    hoover[i] = d[i]["hoover"]
                                     env.reset()
                                 solved += batch_size
 
@@ -146,6 +153,7 @@ if __name__ == "__main__":
                         fd.write(f"Mean reward per agent: {list(so_rewards.mean(axis=0))}\n")
                         fd.write(f"Mean mo reward per agent: {list(mo_rewards.mean(axis=0))}\n")
                         fd.write(f"Mean gini index: {gini.mean()}\n")
+                        fd.write(f"Mean hoover index: {hoover.mean()}\n")
                         stdout = sys.stdout
                         with fd as sys.stdout:
                             env.print_results()

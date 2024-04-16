@@ -58,7 +58,7 @@ if __name__ == "__main__":
     env.reset()
 
     # Loading the agents
-    agents = IPPO.actors_from_file(f"../EGG_DATA/db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/2500_100000_1_(1)")
+    agents = IPPO.actors_from_file(f"../EGG_DATA/db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/2500_100000_1_(2)")
     #agents = IPPO.actors_from_file("../EGG_DATA/db1_effrate0.6_we10_ECAI/db1_effrate0.6_we10_ECAI/2500_100000_1_(1)")
 
     # Running the simulation. Parallelized on batches of 5 simulations.
