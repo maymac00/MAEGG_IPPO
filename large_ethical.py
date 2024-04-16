@@ -49,6 +49,7 @@ class LargeSizeOptimize(OptimizerMAEGG):
             for agent in group:
                 eff_dict[agent] = {"actor_lr": actorlr, "critic_lr": criticlr}
 
+
         ppo.lr_scheduler = IndependentPPOAnnealing(ppo, eff_dict)
         self.args.concavity_entropy = 2.0
         final_value = 0.4

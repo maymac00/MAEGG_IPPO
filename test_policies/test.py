@@ -17,8 +17,8 @@ env = gym.make("MultiAgentEthicalGathering-v1", **large)
 
 agents = IPPO.actors_from_file("EGG_DATA/db1_effrate0.2_we10_ECAI/db1_effrate0.2_we10_ECAI/2500_100000_1")
 
-env.setTrack(True)
-env.setStash(True)
+env.toggleTrack(True)
+env.toggleStash(True)
 env.reset()
 aux_cont = [0] * env.n_agents
 aux_cost = [0] * env.n_agents

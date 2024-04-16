@@ -10,7 +10,9 @@ from EthicalGatheringGame.presets import tiny, small, medium, large
 from IndependentPPO import IPPO
 from IndependentPPO.agent import SoftmaxActor
 from IndependentPPO.ActionSelection import *
+from IndependentPPO.utils.misc import str2bool
 import matplotlib
+import sys
 
 try:
     matplotlib.use('TkAgg')
@@ -19,6 +21,7 @@ except ImportError:
 
 import gym
 import os
+import logging as log
 
 
 def _parallel_rollout(args):
@@ -43,29 +46,38 @@ def _parallel_rollout(args):
     data["mo"] = [env.agents[i].r_vec for i in range(env.n_agents)]
     data["history"] = env.history
 
+    # Calc gini index
+    tot_sum = sum([ag.apples for ag in env.agents.values()])
+    if tot_sum == 0:
+        gini = 0
+    else:
+        gini = 1 - sum([(ag.apples / tot_sum) ** 2 for ag in env.agents.values()])
+    data["gini"] = gini
     d[global_id] = data
 
 
 if __name__ == "__main__":
     # Setting up the environment
 
-    eff_rates = [0, 0.2, 0.6, 1]
-    dbs = [0, 1, 10, 100]
-    wes = [10]
+    MAEGG.log_level = log.INFO
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, default="EGG_DATA")
     parser.add_argument("--n-sims", type=int, default=50)
     parser.add_argument("--n-cpus", type=int, default=8)
+    parser.add_argument("--overwrite", type=str2bool, default=False)
     args = parser.parse_args()
 
+    eff_rates = [0, 0.2, 0.6, 1]
+    dbs = [0, 1, 10, 100]
+    wes = [10]
+
     root = os.getcwd()
+
+    if "test_policies" in root:
+        root = os.path.dirname(root)
     root = os.path.join(root, args.path)
     os.chdir(root)
-
-    env = gym.make("MultiAgentEthicalGathering-v1", **large)
-    env.toggleTrack(True)
-    env.reset()
 
     for db in dbs:
         for eff_rate in eff_rates:
@@ -74,8 +86,8 @@ if __name__ == "__main__":
                     large["we"] = [1, we]
                     large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
                     large["donation_capacity"] = db
-                    env.setStash([])
-                    env.setHistory([])
+                    env = gym.make("MultiAgentEthicalGathering-v1", **large)
+                    env.toggleTrack(True)
                     env.reset()
 
                     # Iterate all directories that start with "2500_100000_1"
@@ -87,7 +99,11 @@ if __name__ == "__main__":
                             # avoid checkpoints
                             if not file.endswith("ckpt"):
                                 dirs.append(file)
-                    for dir in dirs:
+                    for file_num, dir in enumerate(dirs):
+                        if not args.overwrite:
+                            if os.path.exists(dir + "/results.txt"):
+                                continue
+
                         agents = IPPO.actors_from_file(dir)
 
                         n_sims = args.n_sims
@@ -97,6 +113,7 @@ if __name__ == "__main__":
                         stash = []
                         so_rewards = np.zeros((n_sims, env.n_agents))
                         mo_rewards = np.zeros((n_sims, env.n_agents, 2))
+                        gini = np.zeros((n_sims))
 
                         batch_size = args.n_cpus
 
@@ -107,39 +124,38 @@ if __name__ == "__main__":
                             while solved < n_sims:
                                 d = manager.dict()
                                 tasks = [(env, d, agents, global_id) for global_id in
-                                         range(solved, solved + batch_size)]
+                                         range(solved, min(solved + batch_size, n_sims))]
                                 with Pool(batch_size) as p:
                                     p.map(_parallel_rollout, tasks)
 
-                                for i in range(solved, solved + batch_size):
+                                for i in range(solved, min(solved + batch_size, n_sims)):
                                     stash.append(env.build_history_array(h=d[i]["history"]))
-                                    # h = copy.deepcopy(d[i]["history"])
-                                    # env.setHistory(h)
                                     so_rewards[i] = d[i]["so"]
                                     mo_rewards[i] = d[i]["mo"]
+                                    gini[i] = d[i]["gini"]
                                     env.reset()
                                 solved += batch_size
 
-                        # Print mean rewards per agent and objective
-                        # print("\nMean reward per agent: ", '\t'.join([str(s) for s in so_rewards.mean(axis=0)]))
-                        #print(f"\nMean mo reward per agent: ", '\t'.join([str(s) for s in mo_rewards.mean(axis=0)]))
-
                         # Plotting the results
-                        env.toggleTrack = True
                         env.setStash(stash)
-                        env.plot_results("median", save_path=dir)
+                        env.plot_results("median", save_path=dir + "/results.png", show=False)
 
                         # Create txt file with the results
-                        fd = open("results.txt", "w")
-                        fd.write(f"Mean reward per agent: {so_rewards.mean(axis=0)}\n")
-                        fd.write(f"Mean mo reward per agent: {mo_rewards.mean(axis=0)}\n")
+                        fd = open(dir + "/results.txt", "w")
+                        fd.write(f"Mean reward: {so_rewards.mean()}\n")
+                        fd.write(f"Mean reward per agent: {list(so_rewards.mean(axis=0))}\n")
+                        fd.write(f"Mean mo reward per agent: {list(mo_rewards.mean(axis=0))}\n")
+                        fd.write(f"Mean gini index: {gini.mean()}\n")
+                        stdout = sys.stdout
+                        with fd as sys.stdout:
+                            env.print_results()
+                        sys.stdout = stdout
                         fd.close()
-                        print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we} done.")
+                        print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we}, file {file_num} done.")
 
                 except FileNotFoundError as e:
                     print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we} not found. Skipping.")
                     continue
 
                 except Exception as e:
-                    print(f"Error: {e}")
-                    continue
+                    raise e

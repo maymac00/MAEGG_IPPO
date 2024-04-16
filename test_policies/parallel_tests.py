@@ -46,7 +46,7 @@ if __name__ == "__main__":
     # Setting up the environment
 
     eff_rate = 0.6
-    db = 0
+    db = 100
     we = 10
 
     large["we"] = [1, we]
