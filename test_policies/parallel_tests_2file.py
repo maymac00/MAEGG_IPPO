@@ -45,6 +45,7 @@ def _parallel_rollout(args):
     data["so"] = acc_reward
     data["mo"] = [env.agents[i].r_vec for i in range(env.n_agents)]
     data["history"] = env.history
+    data["time_to_survival"] = info["sim_data"]["time_to_survival"]
 
     # Calc gini index
     tot_sum = sum([ag.apples for ag in env.agents.values()])
@@ -65,6 +66,7 @@ if __name__ == "__main__":
     # Setting up the environment
 
     MAEGG.log_level = log.INFO
+    large["color_by_efficiency"] = True
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, default="EGG_DATA")
@@ -83,6 +85,15 @@ if __name__ == "__main__":
         root = os.path.dirname(root)
     root = os.path.join(root, args.path)
     os.chdir(root)
+
+    # Create father numpy db for the results
+    header = (["db", "eff_rate", "we", "dir", "mean_reward"] + ["mean_reward_agent_" + str(i) for i in range(5)] +
+              ["mean_mo_reward_agent_v0_" + str(i) for i in range(5)] +
+              ["mean_mo_reward_agent_ve_" + str(i) for i in range(5)] +
+              ["time_to_survival_agent_" + str(i) for i in range(5)] +
+              ["time_to_survival_agent_sd" + str(i) for i in range(5)] +
+              ["gini", "hoover"])
+    father_db = []
 
     for db in dbs:
         for eff_rate in eff_rates:
@@ -104,9 +115,19 @@ if __name__ == "__main__":
                             # avoid checkpoints
                             if not file.endswith("ckpt"):
                                 dirs.append(file)
+
+                    if len(dirs) == 0:
+                        print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we} does not have finished "
+                              f"experiments. Skipping.")
+                        continue
+                    best_try = None
+                    best_mean = -np.infty
                     for file_num, dir in enumerate(dirs):
                         if not args.overwrite:
-                            if os.path.exists(dir + "/results.txt"):
+                            if os.path.exists(dir + "/results.csv"):
+                                # Add the results to the father numpy db
+                                child_db = np.loadtxt(dir + "/results.csv", delimiter=",", skiprows=1)
+                                father_db.append(child_db)
                                 continue
 
                         agents = IPPO.actors_from_file(dir)
@@ -120,6 +141,7 @@ if __name__ == "__main__":
                         mo_rewards = np.zeros((n_sims, env.n_agents, 2))
                         gini = np.zeros((n_sims))
                         hoover = np.zeros((n_sims))
+                        time_to_survival = np.zeros((n_sims, env.n_agents))
 
                         batch_size = args.n_cpus
 
@@ -140,6 +162,7 @@ if __name__ == "__main__":
                                     mo_rewards[i] = d[i]["mo"]
                                     gini[i] = d[i]["gini"]
                                     hoover[i] = d[i]["hoover"]
+                                    time_to_survival[i] = d[i]["time_to_survival"]
                                     env.reset()
                                 solved += batch_size
 
@@ -147,13 +170,39 @@ if __name__ == "__main__":
                         env.setStash(stash)
                         env.plot_results("median", save_path=dir + "/results.png", show=False)
 
+                        # Build child numpy db
+                        child_db = np.zeros((1, len(header)))
+                        child_db[0, 0] = db
+                        child_db[0, 1] = eff_rate
+                        child_db[0, 2] = we
+                        child_db[0, 3] = file_num
+                        child_db[0, 4] = so_rewards.mean()
+                        child_db[0, 5:10] = so_rewards.mean(axis=0)
+                        child_db[0, 10:15] = mo_rewards.mean(axis=0)[:, 0]
+                        child_db[0, 15:20] = mo_rewards.mean(axis=0)[:, 1]
+                        child_db[0, 20:25] = time_to_survival.mean(axis=0)
+                        child_db[0, 25:30] = time_to_survival.std(axis=0)
+                        child_db[0, 30] = gini.mean()
+                        child_db[0, 31] = hoover.mean()
+
+                        child_db = np.round(child_db, 2)
+                        child_db = child_db.astype(np.float16)
+
+                        # Save child numpy db as csv
+                        np.savetxt(dir + "/results.csv", child_db, header=",".join(header), fmt='%.f', comments="",
+                                   delimiter=",")
+
+                        if best_mean < so_rewards.mean():
+                            best_mean = so_rewards.mean()
+                            best_try = copy.deepcopy(child_db)
+
                         # Create txt file with the results
-                        fd = open(dir + "/results.txt", "w")
-                        fd.write(f"Mean reward: {so_rewards.mean()}\n")
-                        fd.write(f"Mean reward per agent: {list(so_rewards.mean(axis=0))}\n")
-                        fd.write(f"Mean mo reward per agent: {list(mo_rewards.mean(axis=0))}\n")
-                        fd.write(f"Mean gini index: {gini.mean()}\n")
-                        fd.write(f"Mean hoover index: {hoover.mean()}\n")
+                        fd = open(dir + "/event_histogram.txt", "w")
+                        fd.write(f"Mean reward per agent: {so_rewards.mean(axis=0)}\n")
+                        fd.write(f"Mean mo reward per agent: {mo_rewards.mean(axis=0)}\n")
+                        fd.write(f"Mean time to survival per agent: {np.median(time_to_survival, axis=0)}\n")
+                        fd.write(f"Mean gini: {np.median(gini)}\n")
+                        fd.write(f"Mean hoover: {np.median(hoover)}\n")
                         stdout = sys.stdout
                         with fd as sys.stdout:
                             env.print_results()
@@ -161,9 +210,16 @@ if __name__ == "__main__":
                         fd.close()
                         print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we}, file {file_num} done.")
 
+                    # Save best try to father numpy db
+                    father_db.append(best_try)
+
+
                 except FileNotFoundError as e:
                     print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we} not found. Skipping.")
                     continue
 
                 except Exception as e:
                     raise e
+
+    # Save father numpy db as csv
+    np.savetxt("report.csv", father_db, header=",".join(header), fmt='%.f', comments="", delimiter=",")
