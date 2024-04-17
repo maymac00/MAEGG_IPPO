@@ -126,8 +126,10 @@ if __name__ == "__main__":
                         if not args.overwrite:
                             if os.path.exists(dir + "/results.csv"):
                                 # Add the results to the father numpy db
-                                child_db = np.loadtxt(dir + "/results.csv", delimiter=",", skiprows=1)
-                                father_db.append(child_db)
+                                child_db = np.loadtxt(dir + "/results.csv", delimiter=",", skiprows=1).reshape((1, len(header)))
+                                if best_mean < child_db[0, 4]:
+                                    best_mean = child_db[0, 4]
+                                    best_try = copy.deepcopy(child_db)
                                 continue
 
                         agents = IPPO.actors_from_file(dir)
@@ -185,11 +187,11 @@ if __name__ == "__main__":
                         child_db[0, 30] = gini.mean()
                         child_db[0, 31] = hoover.mean()
 
-                        child_db = np.round(child_db, 2)
+                        child_db[0, 4:] = np.round(child_db[0, 4:], 2)
                         child_db = child_db.astype(np.float16)
 
                         # Save child numpy db as csv
-                        np.savetxt(dir + "/results.csv", child_db, header=",".join(header), fmt='%.f', comments="",
+                        np.savetxt(dir + "/results.csv", child_db, header=",".join(header), fmt='%.2f', comments="",
                                    delimiter=",")
 
                         if best_mean < so_rewards.mean():
@@ -211,7 +213,8 @@ if __name__ == "__main__":
                         print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we}, file {file_num} done.")
 
                     # Save best try to father numpy db
-                    father_db.append(best_try)
+                    if best_try is not None:
+                        father_db.append(best_try)
 
 
                 except FileNotFoundError as e:
@@ -222,4 +225,6 @@ if __name__ == "__main__":
                     raise e
 
     # Save father numpy db as csv
-    np.savetxt("report.csv", father_db, header=",".join(header), fmt='%.f', comments="", delimiter=",")
+    s = len(father_db)
+    father_db = np.array(father_db).reshape((s, len(header)))
+    np.savetxt("report.csv", np.array(father_db), header=",".join(header), fmt='%.2f', comments="", delimiter=",")
