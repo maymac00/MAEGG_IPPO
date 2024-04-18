@@ -45,6 +45,8 @@ def _parallel_rollout(args):
     data["so"] = acc_reward
     data["mo"] = [env.agents[i].r_vec for i in range(env.n_agents)]
     data["history"] = env.history
+    # If time to survival is -1 we set it to inf
+    info["sim_data"]["time_to_survival"] = [np.inf if t == -1 else t for t in info["sim_data"]["time_to_survival"]]
     data["time_to_survival"] = info["sim_data"]["time_to_survival"]
 
     # Calc gini index
@@ -73,6 +75,8 @@ if __name__ == "__main__":
     parser.add_argument("--n-sims", type=int, default=50)
     parser.add_argument("--n-cpus", type=int, default=8)
     parser.add_argument("--overwrite", type=str2bool, default=False)
+    parser.add_argument("--testing", type=str2bool, default=False)
+
     args = parser.parse_args()
 
     eff_rates = [0, 0.2, 0.6, 1]
@@ -92,6 +96,7 @@ if __name__ == "__main__":
               ["mean_mo_reward_agent_ve_" + str(i) for i in range(5)] +
               ["time_to_survival_agent_" + str(i) for i in range(5)] +
               ["time_to_survival_agent_sd" + str(i) for i in range(5)] +
+              ["rate_of_survival" + str(i) for i in range(5)] +
               ["gini", "hoover"])
     father_db = []
 
@@ -145,6 +150,7 @@ if __name__ == "__main__":
                         gini = np.zeros((n_sims))
                         hoover = np.zeros((n_sims))
                         time_to_survival = np.zeros((n_sims, env.n_agents))
+                        rate_of_survival = np.zeros((n_sims, env.n_agents))
 
                         batch_size = args.n_cpus
 
@@ -166,12 +172,15 @@ if __name__ == "__main__":
                                     gini[i] = d[i]["gini"]
                                     hoover[i] = d[i]["hoover"]
                                     time_to_survival[i] = d[i]["time_to_survival"]
+                                    rate_of_survival[i] = [1 if t != np.inf else 0 for t in d[i]["time_to_survival"]]
                                     env.reset()
                                 solved += batch_size
 
                         # Plotting the results
                         env.setStash(stash)
                         env.plot_results("median", save_path=dir + "/results.png", show=False)
+
+                        # time to survival
 
                         # Build child numpy db
                         child_db = np.zeros((1, len(header)))
@@ -185,14 +194,18 @@ if __name__ == "__main__":
                         child_db[0, 15:20] = mo_rewards.mean(axis=0)[:, 1]
                         child_db[0, 20:25] = time_to_survival.mean(axis=0)
                         child_db[0, 25:30] = time_to_survival.std(axis=0)
-                        child_db[0, 30] = gini.mean()
-                        child_db[0, 31] = hoover.mean()
+                        child_db[0, 30:35] = rate_of_survival.mean(axis=0)
+                        print(rate_of_survival.mean(axis=0))
+
+                        child_db[0, 35] = gini.mean()
+                        child_db[0, 36] = hoover.mean()
 
                         child_db[0, 4:] = np.round(child_db[0, 4:], 2)
                         child_db = child_db.astype(np.float16)
 
                         # Save child numpy db as csv
-                        np.savetxt(dir + "/results.csv", child_db, header=",".join(header), fmt='%.2f', comments="",
+                        if not args.testing:
+                            np.savetxt(dir + "/results.csv", child_db, header=",".join(header), fmt='%.2f', comments="",
                                    delimiter=",")
 
                         if best_mean < so_rewards.mean():
@@ -233,5 +246,6 @@ if __name__ == "__main__":
     import datetime
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    np.savetxt(f"report_{str(timestamp)}.csv", np.array(father_db), header=",".join(header), fmt='%.2f', comments="",
+    if not args.testing:
+        np.savetxt(f"report_{str(timestamp)}.csv", np.array(father_db), header=",".join(header), fmt='%.2f', comments="",
                delimiter=",")
