@@ -227,4 +227,8 @@ if __name__ == "__main__":
     # Save father numpy db as csv
     s = len(father_db)
     father_db = np.array(father_db).reshape((s, len(header)))
-    np.savetxt("report.csv", np.array(father_db), header=",".join(header), fmt='%.2f', comments="", delimiter=",")
+
+    # Timestamp in format YYYYMMDDHHMMSS
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    np.savetxt(f"report_{str(timestamp)}.csv", np.array(father_db), header=",".join(header), fmt='%.2f', comments="", delimiter=",")
