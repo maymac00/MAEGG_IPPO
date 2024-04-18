@@ -126,7 +126,8 @@ if __name__ == "__main__":
                         if not args.overwrite:
                             if os.path.exists(dir + "/results.csv"):
                                 # Add the results to the father numpy db
-                                child_db = np.loadtxt(dir + "/results.csv", delimiter=",", skiprows=1).reshape((1, len(header)))
+                                child_db = np.loadtxt(dir + "/results.csv", delimiter=",", skiprows=1).reshape(
+                                    (1, len(header)))
                                 if best_mean < child_db[0, 4]:
                                     best_mean = child_db[0, 4]
                                     best_try = copy.deepcopy(child_db)
@@ -230,5 +231,7 @@ if __name__ == "__main__":
 
     # Timestamp in format YYYYMMDDHHMMSS
     import datetime
+
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    np.savetxt(f"report_{str(timestamp)}.csv", np.array(father_db), header=",".join(header), fmt='%.2f', comments="", delimiter=",")
+    np.savetxt(f"report_{str(timestamp)}.csv", np.array(father_db), header=",".join(header), fmt='%.2f', comments="",
+               delimiter=",")
