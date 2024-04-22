@@ -45,9 +45,9 @@ def _parallel_rollout(args):
 if __name__ == "__main__":
     # Setting up the environment
 
-    eff_rate = 0.2
+    eff_rate = 0.6
     db = 100
-    we = 10
+    we = 2.95
 
     large["we"] = [1, we]
     large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
@@ -58,8 +58,9 @@ if __name__ == "__main__":
     env.reset()
 
     # Loading the agents
-    agents = IPPO.actors_from_file(f"../EGG_DATA/db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/2500_100000_1_(6)")
-    #agents = IPPO.actors_from_file("../EGG_DATA/db1_effrate0.6_we10_ECAI/db1_effrate0.6_we10_ECAI/2500_100000_1_(1)")
+    agents = IPPO.actors_from_file(
+        f"../EGG_DATA/db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/2500_100000_1")
+    # agents = IPPO.actors_from_file("../EGG_DATA/db1_effrate0.6_we10_ECAI/db1_effrate0.6_we10_ECAI/2500_100000_1_(1)")
 
     # Running the simulation. Parallelized on batches of 5 simulations.
     n_sims = 100
@@ -84,8 +85,8 @@ if __name__ == "__main__":
 
             for i in range(solved, solved + batch_size):
                 stash.append(env.build_history_array(h=d[i]["history"]))
-                #h = copy.deepcopy(d[i]["history"])
-                #env.setHistory(h)
+                # h = copy.deepcopy(d[i]["history"])
+                # env.setHistory(h)
                 so_rewards[i] = d[i]["so"]
                 mo_rewards[i] = d[i]["mo"]
                 env.reset()

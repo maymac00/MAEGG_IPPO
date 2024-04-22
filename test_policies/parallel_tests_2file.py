@@ -65,6 +65,50 @@ def _parallel_rollout(args):
     d[global_id] = data
 
 
+def compute_we(unethical, values: np.ndarray):
+    """
+    Compute the ethical weight. Values is a numpy array with the values of the policies with shape (simulations, 5, 2)
+    :param unethical:
+    :param values:
+    :return:
+    """
+
+    def get_intersection(v01, ve1, v02, ve2):
+            if ve1 == ve2:
+                return 0
+            we = (v01 - v02) / (ve2 - ve1)
+            return we
+
+    def compute_wes_prima(eff, db):
+        def aggregation_function(wes, method="median"):
+            # cut to interval 1-10 else return -inf
+            wes = [w for w in wes if w >= 1 and w <= 10]
+            if len(wes) == 0:
+                return 0
+            if method == "median":
+                return np.median(wes)
+            if method == "mean":
+                return np.mean(wes)
+            if method == "max":
+                return np.max(wes)
+            if method == "min":
+                return np.min(wes)
+
+        wes_prima = []
+        for ag in range(5):
+            # Print intersecctions
+            p1 = unethical[eff][ag]
+            p2 = ref_policies_values[eff][db][ag]
+            inter = get_intersection(p1[0], p1[1], p2[0], p2[1])
+            wes_prima.append(inter)
+        return aggregation_function(wes_prima, method="median")
+
+    return values
+
+
+
+
+
 if __name__ == "__main__":
     # Setting up the environment
 
@@ -80,9 +124,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    eff_rates = [0, 0.2, 0.6, 1]
-    dbs = [0, 1, 10, 100]
-    wes = [10, 0]
+    eff_rates = [0.2, 0.6, 0, 1]
+    dbs = [1, 10, 100, 0]
+    wes = [0, 10]
 
     root = os.getcwd()
 
@@ -97,14 +141,17 @@ if __name__ == "__main__":
               ["mean_mo_reward_agent_ve_" + str(i) for i in range(5)] +
               ["time_to_survival_agent_" + str(i) for i in range(5)] +
               ["time_to_survival_agent_sd" + str(i) for i in range(5)] +
+              ["time_to_survival_agent_median" + str(i) for i in range(5)] +
               ["rate_of_survival" + str(i) for i in range(5)] +
+              ["rate_of_survival_std" + str(i) for i in range(5)] +
               ["gini", "hoover", "n_survivors"] +
+              ["we_mean", "we_std", "we_median"] +
               ["did_not_donate", "greedy", "picked_apple", "donated", "took_donation", "hungry"])
     father_db = []
-
-    for db in dbs:
+    unethical = {}
+    for we in wes:
         for eff_rate in eff_rates:
-            for we in wes:
+            for db in dbs:
                 try:
                     large["we"] = [1, we]
                     large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
@@ -129,15 +176,25 @@ if __name__ == "__main__":
                         continue
                     best_try = None
                     best_mean = -np.infty
+                    best_try_mo_rewards = None
                     for file_num, dir in enumerate(dirs):
                         if not args.overwrite:
                             if os.path.exists(dir + "/results.csv"):
                                 # Add the results to the father numpy db
-                                child_db = np.loadtxt(dir + "/results.csv", delimiter=",", skiprows=1).reshape(
-                                    (1, len(header)))
+                                try:
+                                    child_db = np.loadtxt(dir + "/results.csv", delimiter=",", skiprows=1).reshape(
+                                        (1, len(header)))
+                                    mo_rewards = np.loadtxt(dir + "/mo_rewards.csv", delimiter=",")
+                                    mo_rewards = mo_rewards.reshape((mo_rewards.shape[0], 5, 2))
+
+                                except ValueError as e:
+                                    print(
+                                        f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we}, file {file_num} results does not match the header. Skipping.")
+                                    continue
                                 if best_mean < child_db[0, 4]:
                                     best_mean = child_db[0, 4]
                                     best_try = copy.deepcopy(child_db)
+                                    best_try_mo_rewards = copy.deepcopy(mo_rewards)
                                 continue
 
                         agents = IPPO.actors_from_file(dir)
@@ -190,18 +247,25 @@ if __name__ == "__main__":
                         time_to_survival = [time_to_survival[:, i] for i in range(env.n_agents)]
                         mean_time_to_survival = []
                         std_time_to_survival = []
+                        median_time_to_survival = []
                         for i in range(len(time_to_survival)):
                             m = time_to_survival[i][time_to_survival[i] != np.inf]
 
                             if m is None or len(m) == 0:
                                 mean_time_to_survival.append(np.nan)
                                 std_time_to_survival.append(np.nan)
+                                median_time_to_survival.append(np.nan)
                                 continue
                             mean_time_to_survival.append(m.mean())
+                            median_time_to_survival.append(np.median(m))
                             std_time_to_survival.append((time_to_survival[i][time_to_survival[i] != np.inf]).std())
 
                         mean_time_to_survival = np.array(mean_time_to_survival).reshape((1, env.n_agents))
                         std_time_to_survival = np.array(std_time_to_survival).reshape((1, env.n_agents))
+                        median_time_to_survival = np.array(median_time_to_survival).reshape((1, env.n_agents))
+
+                        if we != 0:
+                            wes = compute_we(unethical[(0, eff_rate)], mo_rewards)
 
                         # Build child numpy db
                         child_db = np.zeros((1, len(header)))
@@ -215,11 +279,14 @@ if __name__ == "__main__":
                         child_db[0, 15:20] = mo_rewards.mean(axis=0)[:, 1]
                         child_db[0, 20:25] = mean_time_to_survival
                         child_db[0, 25:30] = std_time_to_survival
-                        child_db[0, 30:35] = rate_of_survival.mean(axis=0)
+                        child_db[0, 30:35] = median_time_to_survival
 
-                        child_db[0, 35] = gini.mean()
-                        child_db[0, 36] = hoover.mean()
-                        child_db[0, 37] = n_survivors.mean()
+                        child_db[0, 35:40] = rate_of_survival.mean(axis=0)
+                        child_db[0, 40:45] = rate_of_survival.std(axis=0)
+
+                        child_db[0, 45] = gini.mean()
+                        child_db[0, 46] = hoover.mean()
+                        child_db[0, 47] = n_survivors.mean()
 
                         # Save child numpy db as csv
                         if not args.testing:
@@ -245,13 +312,14 @@ if __name__ == "__main__":
                         grouped_histogram = histogram.mean(axis=0)
                         for it, tag in enumerate(
                                 ["did_not_donate", "greedy", "picked_apple", "donated", "took_donation", "hungry"]):
-                            child_db[0, 38 + it] = grouped_histogram[h_header.index(tag)] if tag in h_header else 0
+                            child_db[0, -6 + it] = grouped_histogram[h_header.index(tag)] if tag in h_header else 0
                         child_db[0, 4:] = np.round(child_db[0, 4:], 2)
                         child_db = child_db.astype(np.float16)
 
                         if not args.testing:
                             np.savetxt(dir + "/results.csv", child_db, header=",".join(header), fmt='%.2f', comments="",
                                        delimiter=",")
+                            np.savetxt(dir + "/mo_rewards.csv", mo_rewards.reshape(n_sims, 10), fmt='%.2f', delimiter=",")
 
                         if best_mean < so_rewards.mean():
                             best_mean = so_rewards.mean()
@@ -262,6 +330,8 @@ if __name__ == "__main__":
                     # Save best try to father numpy db
                     if best_try is not None:
                         father_db.append(best_try)
+                    if we == 0:
+                        unethical[(db, eff_rate)] = best_try
 
 
                 except FileNotFoundError as e:

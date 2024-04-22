@@ -31,7 +31,7 @@ class LargeSizeOptimize(OptimizerMAEGG):
             trial.set_user_attr(k, v)
 
         ppo = ParallelIPPO(self.args, env=env)
-        self.args.ent_coef = 0.1
+        self.args.ent_coef = 0.06
         self.args.tot_steps = 50000000
 
         # We make groups of efficiency to reduce the amount of parameters to tune.
@@ -39,12 +39,9 @@ class LargeSizeOptimize(OptimizerMAEGG):
         eff_dict = {}
 
         for k in eff_groups[0]:
-            eff_dict[k] = {"actor_lr": 1e-06, "critic_lr": 200e-06}
+            eff_dict[k] = {"actor_lr": 6e-06, "critic_lr": 300e-06}
         for k in eff_groups[1]:
-            eff_dict[k] = {
-                "actor_lr": trial.suggest_float(f"actor_lr_{1}", 6e-06, 10e-06, step=1e-06),
-                "critic_lr": 400e-06
-            }
+            eff_dict[k] = {"actor_lr": 6e-06, "critic_lr": 400e-06}
         """
         for i, group in enumerate(eff_groups):
             actorlr = trial.suggest_float(f"actor_lr_{i}", 0.000001, 0.00001, step=0.000005)
