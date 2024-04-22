@@ -47,6 +47,7 @@ def _parallel_rollout(args):
     data["history"] = env.history
     # If time to survival is -1 we set it to inf
     info["sim_data"]["time_to_survival"] = [np.inf if t == -1 else t for t in info["sim_data"]["time_to_survival"]]
+    data["n_survivors"] = sum([1 if ag.apples >= env.survival_threshold else 0 for ag in env.agents.values()])
     data["time_to_survival"] = info["sim_data"]["time_to_survival"]
 
     # Calc gini index
@@ -97,7 +98,8 @@ if __name__ == "__main__":
               ["time_to_survival_agent_" + str(i) for i in range(5)] +
               ["time_to_survival_agent_sd" + str(i) for i in range(5)] +
               ["rate_of_survival" + str(i) for i in range(5)] +
-              ["gini", "hoover"])
+              ["gini", "hoover", "n_survivors"] +
+              ["did_not_donate", "greedy", "picked_apple", "donated", "took_donation", "hungry"])
     father_db = []
 
     for db in dbs:
@@ -151,6 +153,7 @@ if __name__ == "__main__":
                         hoover = np.zeros((n_sims))
                         time_to_survival = np.zeros((n_sims, env.n_agents))
                         rate_of_survival = np.zeros((n_sims, env.n_agents))
+                        n_survivors = np.zeros((n_sims))
 
                         batch_size = args.n_cpus
 
@@ -173,14 +176,32 @@ if __name__ == "__main__":
                                     hoover[i] = d[i]["hoover"]
                                     time_to_survival[i] = d[i]["time_to_survival"]
                                     rate_of_survival[i] = [1 if t != np.inf else 0 for t in d[i]["time_to_survival"]]
+                                    n_survivors[i] = d[i]["n_survivors"]
                                     env.reset()
                                 solved += batch_size
 
                         # Plotting the results
+                        th.set_num_threads(args.n_cpus)
                         env.setStash(stash)
                         env.plot_results("median", save_path=dir + "/results.png", show=False)
 
-                        # time to survival
+                        # time to survival ignore the inf values
+                        time_to_survival = np.array(time_to_survival)
+                        time_to_survival = [time_to_survival[:, i] for i in range(env.n_agents)]
+                        mean_time_to_survival = []
+                        std_time_to_survival = []
+                        for i in range(len(time_to_survival)):
+                            m = time_to_survival[i][time_to_survival[i] != np.inf]
+
+                            if m is None or len(m) == 0:
+                                mean_time_to_survival.append(np.nan)
+                                std_time_to_survival.append(np.nan)
+                                continue
+                            mean_time_to_survival.append(m.mean())
+                            std_time_to_survival.append((time_to_survival[i][time_to_survival[i] != np.inf]).std())
+
+                        mean_time_to_survival = np.array(mean_time_to_survival).reshape((1, env.n_agents))
+                        std_time_to_survival = np.array(std_time_to_survival).reshape((1, env.n_agents))
 
                         # Build child numpy db
                         child_db = np.zeros((1, len(header)))
@@ -192,38 +213,50 @@ if __name__ == "__main__":
                         child_db[0, 5:10] = so_rewards.mean(axis=0)
                         child_db[0, 10:15] = mo_rewards.mean(axis=0)[:, 0]
                         child_db[0, 15:20] = mo_rewards.mean(axis=0)[:, 1]
-                        child_db[0, 20:25] = time_to_survival.mean(axis=0)
-                        child_db[0, 25:30] = time_to_survival.std(axis=0)
+                        child_db[0, 20:25] = mean_time_to_survival
+                        child_db[0, 25:30] = std_time_to_survival
                         child_db[0, 30:35] = rate_of_survival.mean(axis=0)
-                        print(rate_of_survival.mean(axis=0))
 
                         child_db[0, 35] = gini.mean()
                         child_db[0, 36] = hoover.mean()
-
-                        child_db[0, 4:] = np.round(child_db[0, 4:], 2)
-                        child_db = child_db.astype(np.float16)
+                        child_db[0, 37] = n_survivors.mean()
 
                         # Save child numpy db as csv
                         if not args.testing:
+                            # Create txt file with the results
+                            fd = open(dir + "/event_histogram.txt", "w")
+                            fd.write(f"Mean reward per agent: {so_rewards.mean(axis=0)}\n")
+                            fd.write(f"Mean mo reward per agent: {mo_rewards.mean(axis=0)}\n")
+                            fd.write(f"Mean time to survival per agent: {mean_time_to_survival}\n")
+                            fd.write(f"Mean gini: {np.median(gini)}\n")
+                            fd.write(f"Mean hoover: {np.median(hoover)}\n")
+                            stdout = sys.stdout
+                            with fd as sys.stdout:
+                                h_header, histogram = env.print_results()
+                            sys.stdout = stdout
+                            fd.close()
+                        else:
+                            stdout = sys.stdout
+                            with open(os.devnull, 'w') as sys.stdout:
+                                h_header, histogram = env.print_results()
+                            sys.stdout = stdout
+
+                        h_header = list(h_header)
+                        grouped_histogram = histogram.mean(axis=0)
+                        for it, tag in enumerate(
+                                ["did_not_donate", "greedy", "picked_apple", "donated", "took_donation", "hungry"]):
+                            child_db[0, 38 + it] = grouped_histogram[h_header.index(tag)] if tag in h_header else 0
+                        child_db[0, 4:] = np.round(child_db[0, 4:], 2)
+                        child_db = child_db.astype(np.float16)
+
+                        if not args.testing:
                             np.savetxt(dir + "/results.csv", child_db, header=",".join(header), fmt='%.2f', comments="",
-                                   delimiter=",")
+                                       delimiter=",")
 
                         if best_mean < so_rewards.mean():
                             best_mean = so_rewards.mean()
                             best_try = copy.deepcopy(child_db)
 
-                        # Create txt file with the results
-                        fd = open(dir + "/event_histogram.txt", "w")
-                        fd.write(f"Mean reward per agent: {so_rewards.mean(axis=0)}\n")
-                        fd.write(f"Mean mo reward per agent: {mo_rewards.mean(axis=0)}\n")
-                        fd.write(f"Mean time to survival per agent: {np.median(time_to_survival, axis=0)}\n")
-                        fd.write(f"Mean gini: {np.median(gini)}\n")
-                        fd.write(f"Mean hoover: {np.median(hoover)}\n")
-                        stdout = sys.stdout
-                        with fd as sys.stdout:
-                            env.print_results()
-                        sys.stdout = stdout
-                        fd.close()
                         print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we}, file {file_num} done.")
 
                     # Save best try to father numpy db
@@ -242,10 +275,11 @@ if __name__ == "__main__":
     s = len(father_db)
     father_db = np.array(father_db).reshape((s, len(header)))
 
-    # Timestamp in format YYYYMMDDHHMMSS
+    # Timestamp in format YYYY_MM_DD_HH_MM
     import datetime
 
-    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
     if not args.testing:
-        np.savetxt(f"report_{str(timestamp)}.csv", np.array(father_db), header=",".join(header), fmt='%.2f', comments="",
-               delimiter=",")
+        np.savetxt(f"report_{str(timestamp)}.csv", np.array(father_db), header=",".join(header), fmt='%.2f',
+                   comments="",
+                   delimiter=",")

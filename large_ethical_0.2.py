@@ -31,24 +31,24 @@ class LargeSizeOptimize(OptimizerMAEGG):
             trial.set_user_attr(k, v)
 
         ppo = ParallelIPPO(self.args, env=env)
-        self.args.ent_coef = trial.suggest_float("ent_coef", 0.06, 0.08, step=0.02)
+        self.args.ent_coef = 0.08
         self.args.tot_steps = 50000000
 
         # We make groups of efficiency to reduce the amount of parameters to tune.
         eff_groups = [np.where(env.efficiency == value)[0].tolist() for value in np.unique(env.efficiency)]
         eff_dict = {}
-        """
+
         for k in eff_groups[0]:
-            eff_dict[k] = {"actor_lr": 6e-06, "critic_lr": 0.0008}
+            eff_dict[k] = {"actor_lr": 1e-06, "critic_lr": 200e-06}
         for k in eff_groups[1]:
-            eff_dict[k] = {"actor_lr": 6e-06, "critic_lr": 0.0007}
+            eff_dict[k] = {"actor_lr": 6e-06, "critic_lr": 400e-06}
         """
         for i, group in enumerate(eff_groups):
             actorlr = trial.suggest_float(f"actor_lr_{i}", 0.000001, 0.00001, step=0.000005)
             criticlr = trial.suggest_float(f"critic_lr_{i}", 0.0002, 0.001, step=0.0001)
             for agent in group:
                 eff_dict[agent] = {"actor_lr": actorlr, "critic_lr": criticlr}
-
+        """
         ppo.lr_scheduler = IndependentPPOAnnealing(ppo, eff_dict)
         self.args.concavity_entropy = 2.0
         final_value = 0.4
