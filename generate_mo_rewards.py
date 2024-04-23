@@ -117,6 +117,7 @@ if __name__ == "__main__":
                         continue
 
                     for file_num, dir in enumerate(dirs):
+                        # Enter dir
                         agents = IPPO.actors_from_file(dir)
 
                         n_sims = args.n_sims
@@ -151,6 +152,7 @@ if __name__ == "__main__":
                         th.set_num_threads(args.n_cpus)
                         pd.DataFrame(mo_rewards.reshape(-1, 10)).to_csv(f"mo_rewards.csv", header=header, index=False)
                         print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we} finished.")
+
 
 
                 except FileNotFoundError as e:
