@@ -9,14 +9,19 @@ import matplotlib
 matplotlib.use('TkAgg')
 import gym
 
-eff_rate = 0.8
+eff_rate = 1
+db = 100
+we = 10
+large["donation_capacity"] = db
 large["efficiency"] = [0.85]*int(5*eff_rate) + [0.2]*int(5 - eff_rate * 5)
-large["we"] = [1, 0.91]
+large["we"] = [1, we]
+large["donation_capacity"] = db
 env = gym.make("MultiAgentEthicalGathering-v1", **large)
 # env = NormalizeReward(env)
 
-agents = IPPO.actors_from_file("../EGG_DATA/db100_effrate0.6_we10_ECAI/db100_effrate0.6_we10_ECAI/2500_100000_1_(2)")
-
+# Loading the agents
+agents = IPPO.actors_from_file(
+    f"ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/2500_100000_1")
 env.toggleTrack(True)
 env.toggleStash(True)
 env.reset()
@@ -38,7 +43,7 @@ for r in range(100):
         aux_cont = [aux_cont[i] + (1 if (env.agents[i].apples > env.survival_threshold and env.donation_box < env.donation_capacity and apple_diff[i] >=0) else 0) for i in range(env.n_agents)]
         aux_cost = [aux_cost[i] + info["R'_E"][i] for i in range(env.n_agents)]
         last_apple_value = [env.agents[i].apples for i in range(env.n_agents)]
-        # env.render(mode="partial_observability")
+        env.render(mode="partial_observability")
 
     print(f"Epsiode {r}: {acc_reward} \t Agents (V_0, V_e): ", "\t".join([f"({env.agents[i].r_vec})" for i in range(env.n_agents)]))
     mo_history.append([env.agents[i].r_vec for i in range(env.n_agents)])

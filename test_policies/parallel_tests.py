@@ -45,9 +45,9 @@ def _parallel_rollout(args):
 if __name__ == "__main__":
     # Setting up the environment
 
-    eff_rate = 0.6
-    db = 100
-    we = 2.95
+    eff_rate = 1
+    db = 0
+    we = 0
 
     large["we"] = [1, we]
     large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
@@ -59,11 +59,11 @@ if __name__ == "__main__":
 
     # Loading the agents
     agents = IPPO.actors_from_file(
-        f"../EGG_DATA/db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/2500_100000_1")
+        f"../ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/2500_100000_1")
     # agents = IPPO.actors_from_file("../EGG_DATA/db1_effrate0.6_we10_ECAI/db1_effrate0.6_we10_ECAI/2500_100000_1_(1)")
 
     # Running the simulation. Parallelized on batches of 5 simulations.
-    n_sims = 100
+    n_sims = 200
 
     env.toggleTrack = True
     env.toggleStash = True
