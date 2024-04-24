@@ -74,10 +74,10 @@ def compute_we(unethical, values: np.ndarray):
     """
 
     def get_intersection(v01, ve1, v02, ve2):
-            if ve1 == ve2:
-                return 0
-            we = (v01 - v02) / (ve2 - ve1)
-            return we
+        if ve1 == ve2:
+            return 0
+        we = (v01 - v02) / (ve2 - ve1)
+        return we
 
     def compute_wes_prima(eff, db):
         def aggregation_function(wes, method="median"):
@@ -104,9 +104,6 @@ def compute_we(unethical, values: np.ndarray):
         return aggregation_function(wes_prima, method="median")
 
     return values
-
-
-
 
 
 if __name__ == "__main__":
@@ -319,7 +316,8 @@ if __name__ == "__main__":
                         if not args.testing:
                             np.savetxt(dir + "/results.csv", child_db, header=",".join(header), fmt='%.2f', comments="",
                                        delimiter=",")
-                            np.savetxt(dir + "/mo_rewards.csv", mo_rewards.reshape(n_sims, 10), fmt='%.2f', delimiter=",")
+                            np.savetxt(dir + "/mo_rewards.csv", mo_rewards.reshape(n_sims, 10), fmt='%.2f',
+                                       delimiter=",")
 
                         if best_mean < so_rewards.mean():
                             best_mean = so_rewards.mean()

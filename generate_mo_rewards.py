@@ -47,22 +47,8 @@ def _parallel_rollout(args):
     data["mo"] = [env.agents[i].r_vec for i in range(env.n_agents)]
     data["history"] = env.history
     # If time to survival is -1 we set it to inf
-    info["sim_data"]["time_to_survival"] = [np.inf if t == -1 else t for t in info["sim_data"]["time_to_survival"]]
-    data["n_survivors"] = sum([1 if ag.apples >= env.survival_threshold else 0 for ag in env.agents.values()])
+    info["sim_data"]["time_to_survival"] = [np.nan if t == -1 else t for t in info["sim_data"]["time_to_survival"]]
     data["time_to_survival"] = info["sim_data"]["time_to_survival"]
-
-    # Calc gini index
-    tot_sum = sum([ag.apples for ag in env.agents.values()])
-    mean = tot_sum / env.n_agents
-    if tot_sum == 0:
-        gini = 0
-    else:
-        gini = 1 - sum([(ag.apples / tot_sum) ** 2 for ag in env.agents.values()])
-
-    # Calc hoover index
-    hoover = sum([abs(ag.apples - mean) for ag in env.agents.values()]) / (2 * tot_sum)
-    data["gini"] = gini
-    data["hoover"] = hoover
     d[global_id] = data
 
 
@@ -72,14 +58,16 @@ if __name__ == "__main__":
     MAEGG.log_level = log.INFO
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", type=str, default="EGG_DATA")
+    parser.add_argument("--path", type=str, default="ECAI")
     parser.add_argument("--n-sims", type=int, default=50)
     parser.add_argument("--n-cpus", type=int, default=8)
+    parser.add_argument("--write-rewards", type=str2bool, default=False)
+    parser.add_argument("--write-t2s", type=str2bool, default=False)
     args = parser.parse_args()
 
-    eff_rates = [0.2, 0.6, 0, 1]
-    dbs = [1, 10, 100, 0]
-    wes = [0, 10]
+    eff_rates = [1, 0.6, 0.2, 0.0]
+    dbs = [100, 10, 1, 0]
+    wes = [10, 0]
 
     root = os.getcwd()
 
@@ -127,6 +115,7 @@ if __name__ == "__main__":
                         stash = []
                         so_rewards = np.zeros((n_sims, env.n_agents))
                         mo_rewards = np.zeros((n_sims, env.n_agents, 2))
+                        time2survive = np.zeros((n_sims, env.n_agents))
 
                         batch_size = args.n_cpus
 
@@ -145,15 +134,17 @@ if __name__ == "__main__":
                                     stash.append(env.build_history_array(h=d[i]["history"]))
                                     so_rewards[i] = d[i]["so"]
                                     mo_rewards[i] = d[i]["mo"]
+                                    time2survive[i] = d[i]["time_to_survival"]
                                     env.reset()
                                 solved += batch_size
 
                         # Plotting the results
                         th.set_num_threads(args.n_cpus)
-                        pd.DataFrame(mo_rewards.reshape(-1, 10)).to_csv(f"mo_rewards.csv", header=header, index=False)
+                        if args.write_rewards:
+                            pd.DataFrame(mo_rewards.reshape(-1, 10)).to_csv(f"mo_rewards.csv", header=header, index=False)
+                        if args.write_t2s:
+                            pd.DataFrame(time2survive.reshape(-1, 5)).to_csv(f"t2s.csv", header=[f"t2s_ag{i}" for i in range(5)], index=False)
                         print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we} finished.")
-
-
 
                 except FileNotFoundError as e:
                     print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we} not found. Skipping.")
