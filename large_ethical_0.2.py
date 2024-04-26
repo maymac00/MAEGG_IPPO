@@ -42,7 +42,7 @@ class LargeSizeOptimize(OptimizerMAEGG):
             eff_dict[k] = {"actor_lr": 1e-06, "critic_lr": 200e-06}
         for k in eff_groups[1]:
             eff_dict[k] = {
-                "actor_lr": trial.suggest_float(f"actor_lr_{1}", 6e-06, 10e-06, step=1e-06),
+                "actor_lr": trial.suggest_float(f"actor_lr_{1}", 8e-06, 10e-06, step=1e-06),
                 "critic_lr": 400e-06
             }
         """

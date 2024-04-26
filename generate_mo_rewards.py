@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     eff_rates = [1, 0.6, 0.2, 0.0]
     dbs = [100, 10, 1, 0]
-    wes = [10, 0]
+    wes = [1.76, 1.66]
 
     root = os.getcwd()
 
