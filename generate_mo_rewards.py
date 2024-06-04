@@ -63,11 +63,12 @@ if __name__ == "__main__":
     parser.add_argument("--n-cpus", type=int, default=8)
     parser.add_argument("--write-rewards", type=str2bool, default=False)
     parser.add_argument("--write-t2s", type=str2bool, default=False)
+    parser.add_argument("--write-fig", type=str2bool, default=False)
     args = parser.parse_args()
 
-    eff_rates = [1, 0.6, 0.2, 0.0]
+    eff_rates = [0.4, 0.8]
     dbs = [100, 10, 1, 0]
-    wes = [1.76, 1.66]
+    wes = [0, 10]
 
     root = os.getcwd()
 
@@ -140,10 +141,14 @@ if __name__ == "__main__":
 
                         # Plotting the results
                         th.set_num_threads(args.n_cpus)
+                        env.setStash(stash)
                         if args.write_rewards:
                             pd.DataFrame(mo_rewards.reshape(-1, 10)).to_csv(f"mo_rewards.csv", header=header, index=False)
                         if args.write_t2s:
                             pd.DataFrame(time2survive.reshape(-1, 5)).to_csv(f"t2s.csv", header=[f"t2s_ag{i}" for i in range(5)], index=False)
+                        if args.write_fig:
+                            env.plot_results("median", os.getcwd(), show=False)
+
                         print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we} finished.")
 
                 except FileNotFoundError as e:
