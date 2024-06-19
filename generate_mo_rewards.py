@@ -33,18 +33,22 @@ def _parallel_rollout(args):
     :return:
     """
     th.set_num_threads(1)
-    env, d, agents, global_id = args
+    env, d, agents, global_id, gamma = args
     obs, _ = env.reset(seed=global_id)
     data = {}
     acc_reward = [0] * env.n_agents
+    acc_discounted_reward = np.array([0] * env.n_agents)
+    acc_discounted_reward_mo = np.zeros((env.n_agents, 2))
     for i in range(env.max_steps):
         actions = [agent.predict(obs[i]) for i, agent in enumerate(agents)]
         obs, reward, done, info = env.step(actions)
         acc_reward = [acc_reward[i] + reward[i] for i in range(env.n_agents)]
+        acc_discounted_reward = acc_discounted_reward * gamma + np.array(reward)
+        acc_discounted_reward_mo = acc_discounted_reward_mo * gamma + np.array([ag.r_vec for ag in env.agents.values()])
         if all(done):
             break
-    data["so"] = acc_reward
-    data["mo"] = [env.agents[i].r_vec for i in range(env.n_agents)]
+    data["so"] = acc_discounted_reward
+    data["mo"] = acc_discounted_reward_mo
     data["history"] = env.history
     # If time to survival is -1 we set it to inf
     info["sim_data"]["time_to_survival"] = [np.nan if t == -1 else t for t in info["sim_data"]["time_to_survival"]]
@@ -64,6 +68,7 @@ if __name__ == "__main__":
     parser.add_argument("--write-rewards", type=str2bool, default=False)
     parser.add_argument("--write-t2s", type=str2bool, default=False)
     parser.add_argument("--write-fig", type=str2bool, default=False)
+    parser.add_argument("--gamma", type=float, default=0.8)
     args = parser.parse_args()
 
     eff_rates = [0.8]
@@ -125,7 +130,7 @@ if __name__ == "__main__":
                             d = manager.dict()
                             while solved < n_sims:
                                 d = manager.dict()
-                                tasks = [(env, d, agents, global_id) for global_id in
+                                tasks = [(env, d, agents, global_id, args.gamma) for global_id in
                                          range(solved, min(solved + batch_size, n_sims))]
                                 with Pool(batch_size) as p:
                                     p.map(_parallel_rollout, tasks)
