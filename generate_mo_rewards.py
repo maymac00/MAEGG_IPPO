@@ -66,8 +66,8 @@ if __name__ == "__main__":
     parser.add_argument("--write-fig", type=str2bool, default=False)
     args = parser.parse_args()
 
-    eff_rates = [0.4, 0.8]
-    dbs = [100, 10, 1, 0]
+    eff_rates = [0.8]
+    dbs = [0, 10]
     wes = [0, 10]
 
     root = os.getcwd()
@@ -76,6 +76,7 @@ if __name__ == "__main__":
         root = os.path.dirname(root)
     root = os.path.join(root, args.path)
     os.chdir(root)
+    print(f"Root directory: {root}")
 
     # Create father numpy db for the results
     header = [f"v0_ag{i}" for i in range(5)] + [f"ve_ag{i}" for i in range(5)]
@@ -92,13 +93,11 @@ if __name__ == "__main__":
 
                     # Iterate all directories that start with "2500_100000_1"
                     os.chdir(root)
-                    os.chdir(f"db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI")
+                    os.chdir(f"db{db}_effrate{eff_rate}_we{we}_ECAI_new/db{db}_effrate{eff_rate}_we{we}_ECAI_new")
                     dirs = []
                     for file in os.listdir():
-                        if file.startswith("2500_100000_1"):
-                            # avoid checkpoints
-                            if not file.endswith("ckpt"):
-                                dirs.append(file)
+                        if not file.endswith("ckpt"):
+                            dirs.append(file)
 
                     if len(dirs) == 0:
                         print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we} does not have finished "
@@ -147,7 +146,7 @@ if __name__ == "__main__":
                         if args.write_t2s:
                             pd.DataFrame(time2survive.reshape(-1, 5)).to_csv(f"t2s.csv", header=[f"t2s_ag{i}" for i in range(5)], index=False)
                         if args.write_fig:
-                            env.plot_results("median", os.getcwd(), show=False)
+                            env.plot_results("median", str(os.path.join(os.getcwd(), "median_plot.png")), show=False)
 
                         print(f"Experiment with params db:{db}, eff_rate:{eff_rate}, we:{we} finished.")
 

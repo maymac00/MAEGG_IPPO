@@ -25,23 +25,26 @@ class LargeSizeOptimize(OptimizerMAEGG):
         self.args.save_dir += "/" + self.study_name
 
     def construct_ppo(self, trial):
+        time.sleep(np.random.randint(1, 10))
         env = gym.make("MultiAgentEthicalGathering-v1", **self.env_config)
         env = NormalizeReward(env)
 
-        # Set environment parameters as user attributes.
-        for k, v in self.env_config.items():
-            trial.set_user_attr(k, v)
-
-        self.args.ent_coef = 0.08
+        self.args.ent_coef = 0.12
 
         # We make groups of efficiency to reduce the amount of parameters to tune.
         eff_groups = [np.where(env.efficiency == value)[0].tolist() for value in np.unique(env.efficiency)]
         eff_dict = {}
 
         for k in eff_groups[0]:
-            eff_dict[k] = {"actor_lr": 1e-06, "critic_lr": 700e-06}
+            eff_dict[k] = {
+                "actor_lr": trial.suggest_float(f"actor_lr_0", 1e-04, 6e-04, step=2e-04),
+                "critic_lr": trial.suggest_float(f"critic_lr_0", 300e-04, 700e-04, step=200e-04)
+            }
         for k in eff_groups[1]:
-            eff_dict[k] = {"actor_lr": 1e-06, "critic_lr": 700e-06}
+            eff_dict[k] = {
+                "actor_lr": trial.suggest_float(f"actor_lr_1", 1e-04, 6e-04, step=2e-04),
+                "critic_lr": trial.suggest_float(f"critic_lr_1", 300e-04, 700e-04, step=200e-04)
+            }
         """
         for i, group in enumerate(eff_groups):
             actorlr = trial.suggest_float(f"actor_lr_{i}", 0.000001, 0.00001, step=0.000005)

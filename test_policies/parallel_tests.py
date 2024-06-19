@@ -12,6 +12,7 @@ import matplotlib
 
 matplotlib.use('TkAgg')
 import gym
+import os
 
 
 def _parallel_rollout(args):
@@ -45,22 +46,31 @@ def _parallel_rollout(args):
 if __name__ == "__main__":
     # Setting up the environment
 
-    eff_rate = 0.2
-    db = 10
-    we = 1.66
+    folder = "EGG_DATA"
+    eff_rate = 0.8
+    db = 0
+    we = 0
 
     large["we"] = [1, we]
     large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
     large["donation_capacity"] = db
+    large["color_by_efficiency"] = True
     env = gym.make("MultiAgentEthicalGathering-v1", **large)
     # env = NormalizeReward(env)
     env.toggleTrack(True)
     env.reset()
 
+    # If root dir is not MAEGG_IPPO, up one level
+    current_directory = os.getcwd()
+    directory_name = os.path.basename(current_directory)
+    while directory_name != "MAEGG_IPPO":
+        os.chdir("..")
+        current_directory = os.getcwd()
+        directory_name = os.path.basename(current_directory)
+    print(current_directory)
     # Loading the agents
-    agents = IPPO.actors_from_file(
-        f"../ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/2500_100000_1_(2)")
-    # agents = IPPO.actors_from_file("../EGG_DATA/db1_effrate0.6_we10_ECAI/db1_effrate0.6_we10_ECAI/2500_100000_1_(1)")
+    # agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_special/db{db}_effrate{eff_rate}_we{we}_ECAI_special/5000_60000_18_ckpt")
+    agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_new/db{db}_effrate{eff_rate}_we{we}_ECAI_new/2500_60000_2")
 
     # Running the simulation. Parallelized on batches of 5 simulations.
     n_sims = 200
@@ -71,7 +81,7 @@ if __name__ == "__main__":
     so_rewards = np.zeros((n_sims, env.n_agents))
     mo_rewards = np.zeros((n_sims, env.n_agents, 2))
 
-    batch_size = 25
+    batch_size = min(25, n_sims)
 
     with Manager() as manager:
 

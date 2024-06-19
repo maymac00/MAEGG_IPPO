@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 from EthicalGatheringGame import MAEGG, NormalizeReward
 from EthicalGatheringGame.presets import tiny, small, medium, large
@@ -5,23 +7,37 @@ from IndependentPPO import IPPO
 from IndependentPPO.agent import SoftmaxActor
 from IndependentPPO.ActionSelection import *
 import matplotlib
-
+import os
 matplotlib.use('TkAgg')
 import gym
 
-eff_rate = 1
-db = 100
+
+eff_rate = 0.6
+db = 1000
 we = 10
+
+large["n_agents"] = 5
 large["donation_capacity"] = db
-large["efficiency"] = [0.85]*int(5*eff_rate) + [0.2]*int(5 - eff_rate * 5)
+large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
 large["we"] = [1, we]
-large["donation_capacity"] = db
+large["color_by_efficiency"] = True
 env = gym.make("MultiAgentEthicalGathering-v1", **large)
 # env = NormalizeReward(env)
 
+
+# If root dir is not MAEGG_IPPO, up one level
+current_directory = os.getcwd()
+directory_name = os.path.basename(current_directory)
+while directory_name != "MAEGG_IPPO":
+    os.chdir("..")
+    current_directory = os.getcwd()
+    directory_name = os.path.basename(current_directory)
+print(current_directory)
 # Loading the agents
-agents = IPPO.actors_from_file(
-    f"ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/2500_100000_1")
+#agents = IPPO.actors_from_file(f"ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/db{db}_effrate{eff_rate}_we{we}_ECAI/2500_100000_1")
+agents = IPPO.actors_from_file(f"EGG_DATA/ala/ethical_large_we2.6_try1/ethical_large_we2.6_try1/2500_80000_1_(1)")
+# agents = IPPO.actors_from_file(f"EGG_DATA/ala/ethical_large_we2.6_try1/ethical_large_we2.6_try1/2500_80000_1_(1)")
+
 env.toggleTrack(True)
 env.toggleStash(True)
 env.reset()
@@ -43,7 +59,9 @@ for r in range(100):
         aux_cont = [aux_cont[i] + (1 if (env.agents[i].apples > env.survival_threshold and env.donation_box < env.donation_capacity and apple_diff[i] >=0) else 0) for i in range(env.n_agents)]
         aux_cost = [aux_cost[i] + info["R'_E"][i] for i in range(env.n_agents)]
         last_apple_value = [env.agents[i].apples for i in range(env.n_agents)]
-        env.render(mode="partial_observability")
+        env.render(pause=0.2)
+        if i == 1:
+            time.sleep(10)
 
     print(f"Epsiode {r}: {acc_reward} \t Agents (V_0, V_e): ", "\t".join([f"({env.agents[i].r_vec})" for i in range(env.n_agents)]))
     mo_history.append([env.agents[i].r_vec for i in range(env.n_agents)])
