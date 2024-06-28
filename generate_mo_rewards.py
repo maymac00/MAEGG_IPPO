@@ -36,19 +36,24 @@ def _parallel_rollout(args):
     env, d, agents, global_id, gamma = args
     obs, _ = env.reset(seed=global_id)
     data = {}
-    acc_reward = [0] * env.n_agents
-    acc_discounted_reward = np.array([0] * env.n_agents)
+    acc_reward = np.zeros(env.n_agents)
+    acc_reward_mo = np.zeros((env.n_agents, 2))
+    acc_discounted_reward = np.array([0] * env.n_agents, dtype=np.float64)
     acc_discounted_reward_mo = np.zeros((env.n_agents, 2))
     for i in range(env.max_steps):
         actions = [agent.predict(obs[i]) for i, agent in enumerate(agents)]
         obs, reward, done, info = env.step(actions)
-        acc_reward = [acc_reward[i] + reward[i] for i in range(env.n_agents)]
-        acc_discounted_reward = acc_discounted_reward * gamma + np.array(reward)
-        acc_discounted_reward_mo = acc_discounted_reward_mo * gamma + np.array([ag.r_vec for ag in env.agents.values()])
+        mo_rewards = np.array([ag.r_vec for ag in env.agents.values()])
+
+        acc_reward += np.array(reward)
+        acc_reward_mo += mo_rewards
+
+        acc_discounted_reward += np.array(reward) * gamma ** i
+        acc_discounted_reward_mo += mo_rewards * gamma ** i
         if all(done):
             break
-    data["so"] = acc_discounted_reward
-    data["mo"] = acc_discounted_reward_mo
+    data["so"] = acc_reward
+    data["mo"] = acc_reward_mo
     data["history"] = env.history
     # If time to survival is -1 we set it to inf
     info["sim_data"]["time_to_survival"] = [np.nan if t == -1 else t for t in info["sim_data"]["time_to_survival"]]
@@ -71,9 +76,9 @@ if __name__ == "__main__":
     parser.add_argument("--gamma", type=float, default=0.8)
     args = parser.parse_args()
 
-    eff_rates = [0.8]
-    dbs = [0, 10]
-    wes = [0, 10]
+    eff_rates = [0.2]
+    dbs = [10]
+    wes = [10]
 
     root = os.getcwd()
 
@@ -92,6 +97,7 @@ if __name__ == "__main__":
                     large["we"] = [1, we]
                     large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
                     large["donation_capacity"] = db
+                    large["color_by_efficiency"] = True
                     env = gym.make("MultiAgentEthicalGathering-v1", **large)
                     env.toggleTrack(True)
                     env.reset()

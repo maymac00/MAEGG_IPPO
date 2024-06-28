@@ -23,22 +23,31 @@ def _parallel_rollout(args):
     :return:
     """
     th.set_num_threads(1)
-    env, d, agents, global_id = args
+    env, d, agents, global_id, gamma = args
     obs, _ = env.reset(seed=global_id)
     data = {}
-    acc_reward = [0] * env.n_agents
+    acc_reward = np.zeros(env.n_agents)
+    acc_reward_mo = np.zeros((env.n_agents, 2))
+    acc_discounted_reward = np.array([0] * env.n_agents,dtype=np.float64)
+    acc_discounted_reward_mo = np.zeros((env.n_agents, 2))
     for i in range(env.max_steps):
         actions = [agent.predict(obs[i]) for i, agent in enumerate(agents)]
         obs, reward, done, info = env.step(actions)
-        acc_reward = [acc_reward[i] + reward[i] for i in range(env.n_agents)]
+        mo_rewards = np.array([ag.r_vec for ag in env.agents.values()])
+
+        acc_reward += np.array(reward)
+        acc_reward_mo += mo_rewards
+
+        acc_discounted_reward += np.array(reward) * gamma**i
+        acc_discounted_reward_mo += mo_rewards * gamma**i
         if all(done):
             break
     data["so"] = acc_reward
-    data["mo"] = [env.agents[i].r_vec for i in range(env.n_agents)]
+    data["mo"] = acc_reward_mo
     data["history"] = env.history
 
     # Print rewards
-    print(f"Epsiode {global_id}: {acc_reward} \t Agents (V_0, V_e): ", "\t".join([str(s) for s in data["mo"]]))
+    print(f"Epsiode {global_id}: {data['so']} \t Agents (V_0, V_e): ", "\t".join([str(s) for s in data["mo"]]))
 
     d[global_id] = data
 
@@ -47,9 +56,11 @@ if __name__ == "__main__":
     # Setting up the environment
 
     folder = "EGG_DATA"
-    eff_rate = 0.8
-    db = 0
-    we = 0
+    eff_rate = 0.2
+    db = 10
+    we = 10
+
+    gamma = 0.8
 
     large["we"] = [1, we]
     large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
@@ -70,7 +81,7 @@ if __name__ == "__main__":
     print(current_directory)
     # Loading the agents
     # agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_special/db{db}_effrate{eff_rate}_we{we}_ECAI_special/5000_60000_18_ckpt")
-    agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_new/db{db}_effrate{eff_rate}_we{we}_ECAI_new/2500_60000_2")
+    agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_new/db{db}_effrate{eff_rate}_we{we}_ECAI_new/2500_80000_4")
 
     # Running the simulation. Parallelized on batches of 5 simulations.
     n_sims = 200
@@ -89,7 +100,7 @@ if __name__ == "__main__":
         d = manager.dict()
         while solved < n_sims:
             d = manager.dict()
-            tasks = [(env, d, agents, global_id) for global_id in range(solved, solved + batch_size)]
+            tasks = [(env, d, agents, global_id, gamma) for global_id in range(solved, solved + batch_size)]
             with Pool(batch_size) as p:
                 p.map(_parallel_rollout, tasks)
 

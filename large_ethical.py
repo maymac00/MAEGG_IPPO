@@ -29,6 +29,10 @@ class LargeSizeOptimize(OptimizerMAEGG):
         env = gym.make("MultiAgentEthicalGathering-v1", **self.env_config)
         env = NormalizeReward(env)
 
+        # Set environment parameters as user attributes.
+        for k, v in self.env_config.items():
+            trial.set_user_attr(k, v)
+
         self.args.ent_coef = 0.12
 
         # We make groups of efficiency to reduce the amount of parameters to tune.
@@ -37,13 +41,13 @@ class LargeSizeOptimize(OptimizerMAEGG):
 
         for k in eff_groups[0]:
             eff_dict[k] = {
-                "actor_lr": trial.suggest_float(f"actor_lr_0", 1e-04, 6e-04, step=2e-04),
-                "critic_lr": trial.suggest_float(f"critic_lr_0", 300e-04, 700e-04, step=200e-04)
+                "actor_lr": trial.suggest_float(f"actor_lr_0", 1e-04, 10e-04, step=2e-04),
+                "critic_lr": trial.suggest_float(f"critic_lr_0", 300e-04, 1200e-04, step=200e-04)
             }
         for k in eff_groups[1]:
             eff_dict[k] = {
-                "actor_lr": trial.suggest_float(f"actor_lr_1", 1e-04, 6e-04, step=2e-04),
-                "critic_lr": trial.suggest_float(f"critic_lr_1", 300e-04, 700e-04, step=200e-04)
+                "actor_lr": trial.suggest_float(f"actor_lr_1", 1e-04, 10e-04, step=2e-04),
+                "critic_lr": trial.suggest_float(f"critic_lr_1", 300e-04, 1200e-04, step=200e-04)
             }
         """
         for i, group in enumerate(eff_groups):
