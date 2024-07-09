@@ -56,9 +56,9 @@ if __name__ == "__main__":
     # Setting up the environment
 
     folder = "EGG_DATA"
-    eff_rate = 0.2
-    db = 10
-    we = 10
+    eff_rate = 0.8
+    db = 1000
+    we = 2.556
 
     gamma = 0.8
 
@@ -81,10 +81,10 @@ if __name__ == "__main__":
     print(current_directory)
     # Loading the agents
     # agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_special/db{db}_effrate{eff_rate}_we{we}_ECAI_special/5000_60000_18_ckpt")
-    agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_new/db{db}_effrate{eff_rate}_we{we}_ECAI_new/2500_80000_4")
+    agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_new/db{db}_effrate{eff_rate}_we{we}_ECAI_new/2500_60000_14")
 
     # Running the simulation. Parallelized on batches of 5 simulations.
-    n_sims = 200
+    n_sims = 500
 
     env.toggleTrack = True
     env.toggleStash = True

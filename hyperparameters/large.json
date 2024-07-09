@@ -7,7 +7,7 @@
     "max_steps": 500,
     "n_agents": 5,
     "n_steps": 2500,
-    "tot_steps": 60000000,
+    "tot_steps": 30000000,
     "save_dir": "beegfs/EGG_DATA",
     "early_stop": 10000000,
     "past_actions_memory": 0,
@@ -36,5 +36,5 @@
     "load": null,
     "anneal_entropy": true,
     "clip_vloss": true,
-    "concavity_entropy": 1.8
+    "concavity_entropy": 2.0
 }

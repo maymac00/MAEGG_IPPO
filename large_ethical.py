@@ -42,12 +42,12 @@ class LargeSizeOptimize(OptimizerMAEGG):
         for k in eff_groups[0]:
             eff_dict[k] = {
                 "actor_lr": trial.suggest_float(f"actor_lr_0", 1e-04, 10e-04, step=2e-04),
-                "critic_lr": trial.suggest_float(f"critic_lr_0", 300e-04, 1200e-04, step=200e-04)
+                "critic_lr": trial.suggest_float(f"critic_lr_0", 300e-04, 500e-04, step=200e-04)
             }
         for k in eff_groups[1]:
             eff_dict[k] = {
                 "actor_lr": trial.suggest_float(f"actor_lr_1", 1e-04, 10e-04, step=2e-04),
-                "critic_lr": trial.suggest_float(f"critic_lr_1", 300e-04, 1200e-04, step=200e-04)
+                "critic_lr": trial.suggest_float(f"critic_lr_1", 300e-04, 500e-04, step=200e-04)
             }
         """
         for i, group in enumerate(eff_groups):
@@ -65,7 +65,7 @@ class LargeSizeOptimize(OptimizerMAEGG):
         ppo = ParallelIPPO(self.args, env=env)
         ppo.lr_scheduler = IndependentPPOAnnealing(ppo, eff_dict)
         ppo.addCallbacks([
-            PrintAverageReward(ppo, n=5000, show_time=True),
+            PrintAverageReward(ppo, n=1, show_time=True),
             TensorBoardLogging(ppo, log_dir=f"{args.save_dir}/{args.tag}/log/{ppo.run_name}", f=50),
             SaveCheckpoint(ppo, 5000),
             AnnealEntropy(ppo, final_value=final_value, concavity=self.args.concavity_entropy),
@@ -84,6 +84,8 @@ class LargeSizeOptimize(OptimizerMAEGG):
 if __name__ == "__main__":
     args = args_from_json("hyperparameters/large.json")
     # parse we from the args.tag string. Example: "mediumwe0.9_try1" -> we = 0.9
+
+
     try:
         db = float(args.tag.split("db")[1].split("_")[0])
         we = float(args.tag.split("we")[1].split("_")[0])
@@ -93,6 +95,8 @@ if __name__ == "__main__":
 
     large["efficiency"] = [0.85] * int(args.n_agents * eff_rate) + [0.2] * int(args.n_agents - eff_rate * args.n_agents)
     large["donation_capacity"] = db
+    large["color_by_efficiency"] = True
+    large["objective_order"] = "individual_first"
     large["we"] = [1, we]
 
     print(large["efficiency"])
