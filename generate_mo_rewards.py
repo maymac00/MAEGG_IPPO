@@ -73,6 +73,7 @@ if __name__ == "__main__":
     parser.add_argument("--write-rewards", type=str2bool, default=False)
     parser.add_argument("--write-t2s", type=str2bool, default=False)
     parser.add_argument("--write-fig", type=str2bool, default=False)
+    parser.add_argument("--write-stats", type=str2bool, default=False)
     parser.add_argument("--gamma", type=float, default=0.8)
     args = parser.parse_args()
 
@@ -98,6 +99,7 @@ if __name__ == "__main__":
                     large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
                     large["donation_capacity"] = db
                     large["color_by_efficiency"] = True
+                    large["objective_order"] = "individual_first"
                     env = gym.make("MultiAgentEthicalGathering-v1", **large)
                     env.toggleTrack(True)
                     env.reset()
@@ -120,9 +122,6 @@ if __name__ == "__main__":
                         agents = IPPO.actors_from_file(dir)
 
                         n_sims = args.n_sims
-
-                        env.toggleTrack = True
-                        env.toggleStash = True
                         stash = []
                         so_rewards = np.zeros((n_sims, env.n_agents))
                         mo_rewards = np.zeros((n_sims, env.n_agents, 2))

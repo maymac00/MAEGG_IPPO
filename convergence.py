@@ -2,14 +2,13 @@ import copy
 import time
 import gym
 import numpy as np
-from EthicalGatheringGame import NormalizeReward
+from EthicalGatheringGame import NormalizeReward, StatsTracker
 from EthicalGatheringGame.presets import large
 from IndependentPPO import ParallelIPPO, args_from_json
 from IndependentPPO.callbacks import TensorBoardLogging, SaveCheckpoint, AnnealEntropy, \
     PrintAverageReward
 from IndependentPPO.lr_schedules import IndependentPPOAnnealing
 import argparse
-
 
 args = args_from_json("hyperparameters/large.json")
 
@@ -25,12 +24,13 @@ conv_args.add_argument("--actor-lr1", type=float, default=1e-04)
 conv_args.add_argument("--critic-lr1", type=float, default=100e-04)
 conv_args.add_argument("--eval-sims", type=int, default=500)
 
-conv_args , unknown = conv_args.parse_known_args()
+conv_args, unknown = conv_args.parse_known_args()
 # Log every argument
 for arg in vars(conv_args):
     print(f"{arg}: {getattr(conv_args, arg)}")
 
-large["efficiency"] = [0.85] * int(args.n_agents * conv_args.eff_rate) + [0.2] * int(args.n_agents - conv_args.eff_rate * args.n_agents)
+large["efficiency"] = [0.85] * int(args.n_agents * conv_args.eff_rate) + [0.2] * int(
+    args.n_agents - conv_args.eff_rate * args.n_agents)
 large["donation_capacity"] = conv_args.db
 large["color_by_efficiency"] = True
 large["objective_order"] = "individual_first"
@@ -38,6 +38,7 @@ large["we"] = [1, conv_args.we]
 
 env = gym.make("MultiAgentEthicalGathering-v1", **large)
 env = NormalizeReward(env)
+env = StatsTracker(env)
 
 final_value = 0.4
 
