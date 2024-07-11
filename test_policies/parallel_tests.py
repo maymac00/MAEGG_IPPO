@@ -56,9 +56,9 @@ if __name__ == "__main__":
     # Setting up the environment
 
     folder = "EGG_DATA"
-    eff_rate = 0.4
-    db = 1000
-    we = 1.275
+    eff_rate = 0.6
+    db = 10
+    we = 6.472
 
     gamma = 0.8
 
@@ -66,6 +66,7 @@ if __name__ == "__main__":
     large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
     large["donation_capacity"] = db
     large["color_by_efficiency"] = True
+    #large["objective_order"] = "individual_first"
     env = gym.make("MultiAgentEthicalGathering-v1", **large)
     # env = NormalizeReward(env)
     env.toggleTrack(True)
@@ -81,7 +82,7 @@ if __name__ == "__main__":
     print(current_directory)
     # Loading the agents
     # agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_special/db{db}_effrate{eff_rate}_we{we}_ECAI_special/5000_60000_18_ckpt")
-    agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_new/db{db}_effrate{eff_rate}_we{we}_ECAI_new/2500_100000_17")
+    agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_new/db{db}_effrate{eff_rate}_we{we}_ECAI_new/2500_60000_18")
 
     # Running the simulation. Parallelized on batches of 5 simulations.
     n_sims = 500

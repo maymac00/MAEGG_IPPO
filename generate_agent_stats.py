@@ -6,7 +6,7 @@ import optuna
 from torch.multiprocessing import Manager, Pool
 import torch as th
 import numpy as np
-from EthicalGatheringGame import NormalizeReward, StatTracker
+from EthicalGatheringGame import NormalizeReward, StatTracker, MAEGG
 from EthicalGatheringGame.presets import tiny, small, medium, large
 from IndependentPPO import IPPO
 from IndependentPPO.agent import SoftmaxActor
@@ -19,20 +19,25 @@ import os
 import logging as log
 import pandas as pd
 
-eff_rates = [0.4]
+eff_rates = [0.2, 0.4, 0.6, 0.8]
 dbs = [0, 1, 10, 1000]
-wes = [0, 2.139, 2.674, 2.656, 2.505]
+wes = [0, 2.139, 2.674, 2.656, 2.505, 1.98, 1.275, 7.842, 6.472, 6.76, 8.982, 6.678, 2.556]
+wes = [10]
+eff_rates = [0.4]
+dbs = [1000]
 
 root = os.getcwd()
 
 args = argparse.ArgumentParser()
 args.add_argument("--path", type=str, default="EGG_DATA")
-args.add_argument("--n-runs", type=int, default=50)
+args.add_argument("--n-runs", type=int, default=100)
 args.add_argument("--n-cpus", type=int, default=8)
 args.add_argument("--write-t2s", type=str2bool, default=False)
 args.add_argument("--write-stats", type=str2bool, default=False)
 
 args = args.parse_args()
+
+MAEGG.log_level = log.INFO
 
 if "test_policies" in root:
     root = os.path.dirname(root)
@@ -69,8 +74,8 @@ for we in wes:
                 # Get the best trial
                 best_trial = study.best_trial
                 dir = best_trial.user_attrs["saved_dir"]
-                # trim string to start with "EGG_DATA"
-                dir = dir[dir.find("EGG_DATA"):]
+                # trim string to get just the last part
+                dir = dir.split("/")[-1]
 
                 agents = IPPO.actors_from_file(dir)
 
