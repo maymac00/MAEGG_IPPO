@@ -34,6 +34,7 @@ class LargeSizeOptimize(OptimizerMAEGG):
             trial.set_user_attr(k, v)
 
         self.args.ent_coef = 0.12
+        self.args.tot_steps = int(60e6)
 
         # We make groups of efficiency to reduce the amount of parameters to tune.
         eff_groups = [np.where(env.efficiency == value)[0].tolist() for value in np.unique(env.efficiency)]
@@ -41,13 +42,13 @@ class LargeSizeOptimize(OptimizerMAEGG):
 
         for k in eff_groups[0]:
             eff_dict[k] = {
-                "actor_lr": trial.suggest_float(f"actor_lr_0", 1e-04, 10e-04, step=2e-04),
-                "critic_lr": trial.suggest_float(f"critic_lr_0", 300e-04, 500e-04, step=200e-04)
+                "actor_lr": trial.suggest_float(f"actor_lr_0", 7e-04, 14e-04, step=2e-04),
+                "critic_lr": trial.suggest_float(f"critic_lr_0", 300e-04, 900e-04, step=200e-04)
             }
         for k in eff_groups[1]:
             eff_dict[k] = {
-                "actor_lr": trial.suggest_float(f"actor_lr_1", 1e-04, 10e-04, step=2e-04),
-                "critic_lr": trial.suggest_float(f"critic_lr_1", 300e-04, 500e-04, step=200e-04)
+                "actor_lr": trial.suggest_float(f"actor_lr_1", 7e-04, 14e-04, step=2e-04),
+                "critic_lr": trial.suggest_float(f"critic_lr_1", 300e-04, 900e-04, step=200e-04)
             }
         """
         for i, group in enumerate(eff_groups):
@@ -59,13 +60,13 @@ class LargeSizeOptimize(OptimizerMAEGG):
         self.args.seed = trial.suggest_int("seed", 2, 20)
 
         self.args.concavity_entropy = 2.0
-        final_value = 0.4
+        final_value = 0.2
 
         # Do not modify args after this point.
         ppo = ParallelIPPO(self.args, env=env)
         ppo.lr_scheduler = IndependentPPOAnnealing(ppo, eff_dict)
         ppo.addCallbacks([
-            PrintAverageReward(ppo, n=1, show_time=True),
+            PrintAverageReward(ppo, n=5000, show_time=True),
             TensorBoardLogging(ppo, log_dir=f"{args.save_dir}/{args.tag}/log/{ppo.run_name}", f=50),
             SaveCheckpoint(ppo, 5000),
             AnnealEntropy(ppo, final_value=final_value, concavity=self.args.concavity_entropy),
