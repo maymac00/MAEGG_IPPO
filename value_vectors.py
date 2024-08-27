@@ -38,6 +38,8 @@ for eff in eff_rates:
         try:
             if policies[eff][db][0, 0] > policies[eff][db][0, 1]:
                 policies[eff][db] = policies[eff][db][:, ::-1]
+            if db == 0:
+                policies[eff][db][:, 1] = 0
         except:
             continue
 get_ind = lambda eff, db: policies[eff][db][:int(eff * 5), 1]
