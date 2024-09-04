@@ -14,15 +14,15 @@ policies_t2s_std[0.2][0] = np.array([28.69,      np.nan,      np.nan,      np.na
 policies_t2s_meds[0.2][0] = np.array([ 113.0, np.nan, np.nan, np.nan, np.nan])
 policies_t2s_iqr[0.2][0] = np.array([57.0, 0, 0, 0, 0])
 
-policies_t2s[0.2][1] = np.array([ 130.15,348.68,324.58,347.09,322.42 ])
-policies_t2s_std[0.2][1] = np.array([ 32.56,45.5,51.58,45.69,53.93 ])
-policies_t2s_meds[0.2][1] = np.array([ 126.0,348.0,325.0,347.0,323.0 ])
-policies_t2s_iqr[0.2][1] = np.array([58.0, 89.0, 63.0, 94.0, 83.0])
+policies_t2s[0.2][1] = np.array([ 109.43,350.26,270.79,282.02,306.95 ])
+policies_t2s_std[0.2][1] = np.array([ 25.17,38.83,53.31,52.91,47.24 ])
+policies_t2s_meds[0.2][1] = np.array([ 107.0,349.5,271.0,280.5,309.0 ])
+policies_t2s_iqr[0.2][1] = np.array([ 31.0,50.0,73.5,70.0,55.25 ])
 
-policies_t2s[0.2][10] = np.array([ 144.86,358.55,373.7,370.08,359.05 ])
-policies_t2s_std[0.2][10] = np.array([ 41.0,53.58,49.68,51.74,52.87 ])
-policies_t2s_meds[0.2][10] = np.array([ 138.0,356.0,373.0,371.0,358.0 ])
-policies_t2s_iqr[0.2][10] = np.array([ 56.0,77.0,76.0,72.0,74.0 ])
+policies_t2s[0.2][10] = np.array([ 103.16,303.92,326.91,308.83,305.86 ])
+policies_t2s_std[0.2][10] = np.array([ 21.7,41.92,37.51,41.9,40.64 ])
+policies_t2s_meds[0.2][10] = np.array([ 100.0,304.0,327.0,311.0,307.0 ])
+policies_t2s_iqr[0.2][10] = np.array([ 29.0,52.0,43.25,51.0,55.25 ])
 
 policies_t2s[0.2][1000] = np.array([ 140.38,334.98,355.73,347.07,351.89 ])
 policies_t2s_std[0.2][1000] = np.array([ 39.74,53.64,51.12,52.25,51.59 ])
@@ -42,15 +42,15 @@ policies_t2s_meds[0.4][1] = np.array([ 146.0,145.0,274.0,231.0,281.5 ])
 policies_t2s_iqr[0.4][1] = np.array([ 51.0,51.0,54.75,56.0,52.0 ])
 
 
-policies_t2s[0.4][10] = np.array([ 143.35,135.94,260.96,260.88,227.46 ])
-policies_t2s_std[0.4][10] = np.array([ 39.49,34.78,36.35,35.96,39.2 ])
-policies_t2s_meds[0.4][10] = np.array([ 138.0,131.0,258.0,258.0,224.0 ])
-policies_t2s_iqr[0.4][10] = np.array([ 50.0,45.0,47.0,45.0,52.0 ])
+policies_t2s[0.4][10] = np.array([ 122.17,113.82,213.94,241.83,200.69 ])
+policies_t2s_std[0.4][10] =  np.array([ 30.13,27.66,30.7,27.19,31.61 ])
+policies_t2s_meds[0.4][10] = np.array([ 118.0,110.0,214.0,241.0,200.0 ])
+policies_t2s_iqr[0.4][10] = np.array([ 37.0,35.0,42.25,35.0,41.0 ])
 
-policies_t2s[0.4][1000] = np.array([ 129.59,128.44,248.13,233.78,226.75 ])
-policies_t2s_std[0.4][1000] = np.array([ 33.87,32.85,28.89,31.51,32.9 ])
-policies_t2s_meds[0.4][1000] = np.array([ 125.0,124.0,246.0,232.0,226.0 ])
-policies_t2s_iqr[0.4][1000] = np.array([ 44.0,42.0,38.0,40.0,44.0 ])
+policies_t2s[0.4][1000] = np.array([ 113.98,119.69,224.31,204.54,225.59 ])
+policies_t2s_std[0.4][1000] = np.array([ 26.8,28.92,32.36,32.71,29.69 ])
+policies_t2s_meds[0.4][1000] = np.array([ 110.0,118.0,226.0,203.0,225.0 ])
+policies_t2s_iqr[0.4][1000] = np.array([ 34.25,37.25,41.0,44.25,40.0 ])
 
 # eff 0.6
 policies_t2s[0.6][0] = np.array([ 127.95,124.97,133.09,np.nan,np.nan ])
