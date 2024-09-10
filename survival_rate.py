@@ -20,10 +20,15 @@ policies_sr_std[0.4][0] = np.array([0.0, 0.0, 0.0, 0.0833, 0.0546])
 policies_sr_meds[0.4][0] = np.array([1.0, 1.0, 0.0, 0.0, 0.0])
 policies_sr_iqr[0.4][0] = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
 
+policies_sr_mean[0.4][10] = np.array([1., 1., 1., 1.,1.])
+policies_sr_std[0.4][10] = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+policies_sr_meds[0.4][10] = np.array([1., 1., 1., 1.,1.])
+policies_sr_iqr[0.4][10] = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+
 # eff 0.6
-policies_sr_mean[0.6][0] = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+policies_sr_mean[0.6][0] = np.array([1., 1., 1., 0.0, 0.0])
 policies_sr_std[0.6][0] = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
-policies_sr_meds[0.6][0] = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+policies_sr_meds[0.6][0] = np.array([1., 1., 1., 0.0, 0.0])
 policies_sr_iqr[0.6][0] = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
 
 policies_sr_mean[0.6][10] = np.array([1., 1., 1., 1.,1.])
