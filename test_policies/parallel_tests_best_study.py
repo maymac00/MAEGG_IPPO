@@ -140,6 +140,7 @@ if __name__ == "__main__":
     final_so_rewards = np.zeros((n_sims, env.n_agents))
     final_mo_rewards = np.zeros((n_sims, env.n_agents, 2))
     time2survive = np.zeros((n_sims, env.n_agents))
+    survival = np.zeros((n_sims, env.n_agents))
 
     batch_size = min(5, n_sims)
     if args.mode == "parallel":
@@ -160,6 +161,7 @@ if __name__ == "__main__":
                     final_so_rewards[i] = d[i]["so"]
                     final_mo_rewards[i] = d[i]["mo"]
                     time2survive[i] = d[i]["time_to_survival"]
+                    survival[i] = [1 if t != np.inf else 0 for t in d[i]["time_to_survival"]]
                     env.reset()
                 solved += batch_size
 
@@ -173,6 +175,13 @@ if __name__ == "__main__":
             print("\nMean reward per agent: ", '\t'.join([str(s) for s in final_so_rewards.mean(axis=0)]))
             print("\nMean mo reward per agent: np.array([",
                   ','.join([f'[{round(s[0], 2)}, {round(s[1], 2)}]' for s in final_mo_rewards.mean(axis=0)]), "])")
+
+            print("Survival rate: np.array([", ",".join([str(s) for s in survival.mean(axis=0)]), "])")
+            print("Std Survival rate: np.array([", ",".join([str(s) for s in survival.std(axis=0)]), "])")
+            print("Median Survival rate: np.array([", ",".join([str(s) for s in np.median(survival, axis=0)]), "])")
+            print("IQR Survival rate: np.array([", ",".join(
+                [str(s) for s in (np.percentile(survival, 75, axis=0) - np.percentile(survival, 25, axis=0))]), "])")
+
             print("\nMean Time to survive: np.array([", ",".join([f'{round(s, 2)}' for s in time2survive.mean(axis=0)]), "])")
             print("Std Time to survive: np.array([", ",".join([f'{round(s, 2)}' for s in time2survive.std(axis=0)]), "])")
             print("Median Time to survive: np.array([", ",".join([f'{round(np.median(s), 2)}' for s in time2survive.T]), "])")
@@ -199,17 +208,23 @@ if __name__ == "__main__":
             info["sim_data"]["time_to_survival"] = [np.inf if t == -1 else t for t in
                                                     info["sim_data"]["time_to_survival"]]
             time2survive[sim] = info["sim_data"]["time_to_survival"]
+            survival[sim] = [1 if t != np.inf else 0 for t in info["sim_data"]["time_to_survival"]]
             final_so_rewards[sim] = acc_reward
             final_mo_rewards[sim] = acc_reward_mo
 
         # redirect stdout to file
         sys.stdout = open(f"{folder}/{args.tag}/{args.tag}/{dir}_results.txt", "w")
         print(f"Results for {args.tag}/{dir}")
-        print(f"Results for {args.tag}/{dir}")
         print("\nMean reward: ", final_so_rewards.mean())
         print("\nMean reward per agent: ", '\t'.join([str(s) for s in final_so_rewards.mean(axis=0)]))
         print("\nMean mo reward per agent: np.array([",
               ','.join([f'[{round(s[0], 2)}, {round(s[1], 2)}]' for s in final_mo_rewards.mean(axis=0)]), "])")
+
+        print("Survival rate: np.array([", ",".join([str(s) for s in survival.mean(axis=0)]), "])")
+        print("Std Survival rate: np.array([", ",".join([str(s) for s in survival.std(axis=0)]), "])")
+        print("Median Survival rate: np.array([", ",".join([str(s) for s in np.median(survival, axis=0)]), "])")
+        print("IQR Survival rate: np.array([", ",".join([str(s) for s in (np.percentile(survival, 75, axis=0) - np.percentile(survival, 25, axis=0))]), "])")
+
         print("\nMean Time to survive: np.array([", ",".join([f'{round(s, 2)}' for s in time2survive.mean(axis=0)]),
               "])")
         print("Std Time to survive: np.array([", ",".join([f'{round(s, 2)}' for s in time2survive.std(axis=0)]), "])")

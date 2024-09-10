@@ -1,7 +1,5 @@
 import numpy as np
 
-from value_vectors import policies
-
 eff_rates = [0.2, 0.4, 0.6, 0.8]
 policies_t2s = {eff: {} for eff in eff_rates}
 policies_t2s_std = {eff: {} for eff in eff_rates}
