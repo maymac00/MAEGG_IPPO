@@ -12,9 +12,9 @@ matplotlib.use('TkAgg')
 import gym
 
 
-eff_rate = 0.6
-db = 1
-we = 7.842
+eff_rate = 0.4
+db = 1000
+we = 1.875
 
 large["n_agents"] = 5
 large["donation_capacity"] = db
@@ -36,8 +36,7 @@ while directory_name != "MAEGG_IPPO":
     directory_name = os.path.basename(current_directory)
 print(current_directory)
 # Loading the agents
-
-agents = IPPO.actors_from_file(f"EGG_DATA/db1_effrate0.6_we7.842_ECAI_new/db1_effrate0.6_we7.842_ECAI_new/2500_60000_7")
+agents = IPPO.actors_from_file(f"EGG_DATA/db1000_effrate0.4_we1.675_ECAI_new/db1000_effrate0.4_we1.675_ECAI_new/2500_100000_20")
 
 env.toggleTrack(True)
 env.toggleStash(True)
@@ -52,6 +51,7 @@ for s in range(50):
 
         acc_reward += np.array(reward)
         acc_reward_mo += mo_rewards
+        env.render(mode="partial_observability", pause=0.4)
     print(f"Episode {s}: {acc_reward} \t Agents (V_0, V_e): ", "\t".join([str(s) for s in acc_reward_mo]))
 
 print(f"\nMean reward per agent: {list(acc_reward / env.max_steps)}")

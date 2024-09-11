@@ -6,7 +6,7 @@ import numpy as np
 from EthicalGatheringGame import MAEGG, NormalizeReward
 from EthicalGatheringGame.presets import tiny, small, medium, large
 from IndependentPPO import IPPO
-from IndependentPPO.agent import SoftmaxActor
+from IndependentPPO.agent import SoftmaxActor, ACTIONS
 from IndependentPPO.ActionSelection import *
 import matplotlib
 
@@ -57,11 +57,11 @@ if __name__ == "__main__":
 
     folder = "EGG_DATA"
     eff_rate = 0.6
-    db = 10
-    we = 6.472
+    db = 1
+    we = 10
 
     gamma = 0.8
-
+    SoftmaxActor.eval_action_selection = GreedyActionSelection(ACTIONS)
     large["we"] = [1, we]
     large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
     large["donation_capacity"] = db
@@ -82,10 +82,10 @@ if __name__ == "__main__":
     print(current_directory)
     # Loading the agents
     # agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_special/db{db}_effrate{eff_rate}_we{we}_ECAI_special/5000_60000_18_ckpt")
-    agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_new/db{db}_effrate{eff_rate}_we{we}_ECAI_new/2500_60000_18")
+    agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_new_arq/db{db}_effrate{eff_rate}_we{we}_ECAI_new_arq/5000_60000_16_ckpt")
 
     # Running the simulation. Parallelized on batches of 5 simulations.
-    n_sims = 500
+    n_sims = 200
 
     env.toggleTrack = True
     env.toggleStash = True
