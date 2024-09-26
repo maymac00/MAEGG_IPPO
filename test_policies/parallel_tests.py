@@ -24,26 +24,37 @@ def _parallel_rollout(args):
     """
     th.set_num_threads(1)
     env, d, agents, global_id, gamma = args
+
     obs, _ = env.reset(seed=global_id)
     data = {}
     acc_reward = np.zeros(env.n_agents)
     acc_reward_mo = np.zeros((env.n_agents, 2))
-    acc_discounted_reward = np.array([0] * env.n_agents,dtype=np.float64)
-    acc_discounted_reward_mo = np.zeros((env.n_agents, 2))
+    reward_history_mo = np.zeros((env.max_steps, env.n_agents, 2))
     for i in range(env.max_steps):
         actions = [agent.predict(obs[i]) for i, agent in enumerate(agents)]
         obs, reward, done, info = env.step(actions)
         mo_rewards = np.array([ag.r_vec for ag in env.agents.values()])
+        reward_history_mo[i] = mo_rewards
 
         acc_reward += np.array(reward)
         acc_reward_mo += mo_rewards
-
-        acc_discounted_reward += np.array(reward) * gamma**i
-        acc_discounted_reward_mo += mo_rewards * gamma**i
         if all(done):
             break
+    disc_mo = np.zeros((env.max_steps, env.n_agents, 2))
+    gamma = 0.8
+    for agent in range(env.n_agents):
+        for reward_type in range(2):
+            # Extract the rewards for the current episode, agent, and reward type
+            rewards = reward_history_mo[:, agent, reward_type]  # Shape (500,)
+            for t in range(len(rewards)):
+                # Apply the discount to the rewards from time step t onward
+                disc_mo[t, agent, reward_type] = np.sum(
+                    [gamma ** (i - t) * rewards[i] for i in range(t, len(rewards))]
+                )
     data["so"] = acc_reward
     data["mo"] = acc_reward_mo
+    data["reward_history_mo"] = reward_history_mo
+    data["disc_mo"] = disc_mo.sum(axis=0)
     data["history"] = env.history
 
     # Print rewards
@@ -56,12 +67,12 @@ if __name__ == "__main__":
     # Setting up the environment
 
     folder = "EGG_DATA"
-    eff_rate = 0.6
-    db = 1
+    eff_rate = 0.4
+    db = 10
     we = 10
 
     gamma = 0.8
-    SoftmaxActor.eval_action_selection = GreedyActionSelection(ACTIONS)
+    #SoftmaxActor.eval_action_selection = GreedyActionSelection(ACTIONS)
     large["we"] = [1, we]
     large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
     large["donation_capacity"] = db
@@ -82,8 +93,8 @@ if __name__ == "__main__":
     print(current_directory)
     # Loading the agents
     # agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_special/db{db}_effrate{eff_rate}_we{we}_ECAI_special/5000_60000_18_ckpt")
-    agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_new_arq/db{db}_effrate{eff_rate}_we{we}_ECAI_new_arq/5000_60000_16_ckpt")
-
+    #agents = IPPO.actors_from_file(f"{folder}/db{db}_effrate{eff_rate}_we{we}_ECAI_new_arq/db{db}_effrate{eff_rate}_we{we}_ECAI_new_arq/5000_60000_16_ckpt")
+    agents = IPPO.actors_from_file("EGG_DATA/db10_effrate0.4_we10_ECAI_new2/db10_effrate0.4_we10_ECAI_new2/2500_120000_15")
     # Running the simulation. Parallelized on batches of 5 simulations.
     n_sims = 200
 
@@ -92,6 +103,8 @@ if __name__ == "__main__":
     stash = []
     so_rewards = np.zeros((n_sims, env.n_agents))
     mo_rewards = np.zeros((n_sims, env.n_agents, 2))
+    reward_history_mo = np.zeros((n_sims, env.max_steps, env.n_agents, 2))
+    disc_mo = np.zeros((n_sims, env.n_agents, 2))
 
     batch_size = min(25, n_sims)
 
@@ -111,12 +124,14 @@ if __name__ == "__main__":
                 # env.setHistory(h)
                 so_rewards[i] = d[i]["so"]
                 mo_rewards[i] = d[i]["mo"]
+                disc_mo[i] = d[i]["disc_mo"]
                 env.reset()
             solved += batch_size
 
     # Print mean rewards per agent and objective
     print("\nMean reward per agent: ", '\t'.join([str(s) for s in so_rewards.mean(axis=0)]))
     print(f"\nMean mo reward per agent: ", '\t'.join([str(s) for s in mo_rewards.mean(axis=0)]))
+    print(f"\nMean disc mo reward per agent: ", '\t'.join([str(s) for s in disc_mo.mean(axis=0)]))
 
     # Plotting the results
     env.toggleTrack = True

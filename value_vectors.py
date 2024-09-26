@@ -30,6 +30,22 @@ policies[0.8][1] = np.array([ [-88.14, 4.38],[-99.09, 3.48],[-98.87, 3.5],[-94.4
 policies[0.8][10] = np.array([ [-98.11, 5.32],[-77.71, 7.55],[-100.09, 5.42],[-99.91, 5.14],[-188.79, 0.02] ])
 policies[0.8][1000] = np.array([ [-125.1, 30.91],[-122.76, 30.96],[-125.19, 29.29],[-123.75, 30.25],[-174.95, 0.0] ])
 
+
+validations = {eff: {} for eff in eff_rates}
+# eff 0.2
+validations[0.2][10] = 0 # Not yet
+validations[0.2][1000] = 0 # Not yet
+# eff 0.4
+validations[0.4][10] = np.array([ [-44.7, 19.48],[-54.75, 17.29],[-193.98, 0.0],[-232.76, 0.0],[-193.55, 0.88] ])
+validations[0.4][1000] = np.array([ [-103.0, 44.18],[-100.6, 44.62],[-208.18, 0.0],[-212.86, 0.0],[-222.32, 0.0] ]) # Inefficient do not donate
+
+# eff 0.6
+validations[0.6][10] = np.array([ [-65.94, 9.65],[-64.41, 9.74],[-64.35, 9.82],[-174.54, 0.0],[-191.84, 0.0] ])
+validations[0.6][1000] = np.array([ [-115.51, 36.19],[-117.14, 35.2],[-104.84, 40.22],[-166.64, 0.0],[-198.98, 0.0] ]) # Inefficient do not donate
+
+# eff 0.8
+pass
+
 for eff in eff_rates:
     for db in [0, 1, 10, 1000]:
         try:
@@ -37,7 +53,14 @@ for eff in eff_rates:
                 policies[eff][db] = policies[eff][db][:, ::-1]
             if db == 0:
                 policies[eff][db][:, 1] = 0
+
+            if validations[eff][db][0, 0] > validations[eff][db][0, 1]:
+                validations[eff][db] = validations[eff][db][:, ::-1]
+            if db == 0:
+                validations[eff][db][:, 1] = 0
+
         except:
             continue
+
 get_ind = lambda eff, db: policies[eff][db][:int(eff * 5), 1]
 get_et = lambda eff, db: policies[eff][db][:int(eff * 5), 0]

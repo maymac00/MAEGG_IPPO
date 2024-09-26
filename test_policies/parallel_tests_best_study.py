@@ -31,19 +31,35 @@ def _parallel_rollout(args):
     data = {}
     acc_reward = np.zeros(env.n_agents)
     acc_reward_mo = np.zeros((env.n_agents, 2))
+    reward_history_mo = np.zeros((env.max_steps, env.n_agents, 2))
 
     for i in range(env.max_steps):
         actions = [agent.predict(obs[i]) for i, agent in enumerate(agents)]
         obs, reward, done, info = env.step(actions)
         mo_rewards = np.array([ag.r_vec for ag in env.agents.values()])
+        reward_history_mo[i] = mo_rewards
 
         acc_reward += np.array(reward)
         acc_reward_mo += mo_rewards
 
         if all(done):
             break
+
+    disc_mo = np.zeros((env.max_steps, env.n_agents, 2))
+    gamma = 0.8
+    for agent in range(env.n_agents):
+        for reward_type in range(2):
+            # Extract the rewards for the current episode, agent, and reward type
+            rewards = reward_history_mo[:, agent, reward_type]  # Shape (500,)
+            for t in range(len(rewards)):
+                # Apply the discount to the rewards from time step t onward
+                disc_mo[t, agent, reward_type] = np.sum(
+                    [gamma ** (i - t) * rewards[i] for i in range(t, len(rewards))]
+                )
+
     data["so"] = acc_reward
     data["mo"] = acc_reward_mo
+    data["disc_mo"] = disc_mo.sum(axis=0)
     data["history"] = env.history
 
     info["sim_data"]["time_to_survival"] = [np.inf if t == -1 else t for t in info["sim_data"]["time_to_survival"]]
@@ -141,6 +157,7 @@ if __name__ == "__main__":
     final_mo_rewards = np.zeros((n_sims, env.n_agents, 2))
     time2survive = np.zeros((n_sims, env.n_agents))
     survival = np.zeros((n_sims, env.n_agents))
+    discounted_returns = np.zeros((n_sims, env.n_agents, 2))
 
     batch_size = min(5, n_sims)
     if args.mode == "parallel":
@@ -160,6 +177,7 @@ if __name__ == "__main__":
                     # env.setHistory(h)
                     final_so_rewards[i] = d[i]["so"]
                     final_mo_rewards[i] = d[i]["mo"]
+                    discounted_returns[i] = d[i]["disc_mo"]
                     time2survive[i] = d[i]["time_to_survival"]
                     survival[i] = [1 if t != np.inf else 0 for t in d[i]["time_to_survival"]]
                     env.reset()
@@ -175,6 +193,9 @@ if __name__ == "__main__":
             print("\nMean reward per agent: ", '\t'.join([str(s) for s in final_so_rewards.mean(axis=0)]))
             print("\nMean mo reward per agent: np.array([",
                   ','.join([f'[{round(s[0], 2)}, {round(s[1], 2)}]' for s in final_mo_rewards.mean(axis=0)]), "])")
+            print("Expected discounted mo returns: np.array([", ','.join(
+                [f'[{round(s[0], 2)}, {round(s[1], 2)}]' for s in discounted_returns.mean(axis=0)]), "])")
+
 
             print("Survival rate: np.array([", ",".join([str(s) for s in survival.mean(axis=0)]), "])")
             print("Std Survival rate: np.array([", ",".join([str(s) for s in survival.std(axis=0)]), "])")
@@ -193,17 +214,31 @@ if __name__ == "__main__":
             obs, _ = env.reset()
             acc_reward = np.zeros(env.n_agents)
             acc_reward_mo = np.zeros((env.n_agents, 2))
+            reward_history_mo = np.zeros((env.max_steps, env.n_agents, 2))
 
             for i in range(env.max_steps):
                 actions = [agent.predict(obs[i]) for i, agent in enumerate(agents)]
                 obs, reward, done, info = env.step(actions)
                 mo_rewards = np.array([ag.r_vec for ag in env.agents.values()])
+                reward_history_mo[i] = mo_rewards
 
                 acc_reward += np.array(reward)
                 acc_reward_mo += mo_rewards
 
                 if all(done):
                     break
+            disc_mo = np.zeros((env.max_steps, env.n_agents, 2))
+            gamma = 0.8
+            for agent in range(env.n_agents):
+                for reward_type in range(2):
+                    # Extract the rewards for the current episode, agent, and reward type
+                    rewards = reward_history_mo[:, agent, reward_type]  # Shape (500,)
+                    for t in range(len(rewards)):
+                        # Apply the discount to the rewards from time step t onward
+                        disc_mo[t, agent, reward_type] = np.sum(
+                            [gamma ** (i - t) * rewards[i] for i in range(t, len(rewards))]
+                        )
+            discounted_returns[sim] = disc_mo.sum(axis=0)
 
             info["sim_data"]["time_to_survival"] = [np.inf if t == -1 else t for t in
                                                     info["sim_data"]["time_to_survival"]]
@@ -219,6 +254,8 @@ if __name__ == "__main__":
         print("\nMean reward per agent: ", '\t'.join([str(s) for s in final_so_rewards.mean(axis=0)]))
         print("\nMean mo reward per agent: np.array([",
               ','.join([f'[{round(s[0], 2)}, {round(s[1], 2)}]' for s in final_mo_rewards.mean(axis=0)]), "])")
+        print("Expected discounted mo returns: np.array([", ','.join(
+            [f'[{round(s[0], 2)}, {round(s[1], 2)}]' for s in discounted_returns.mean(axis=0)]), "])")
 
         print("Survival rate: np.array([", ",".join([str(s) for s in survival.mean(axis=0)]), "])")
         print("Std Survival rate: np.array([", ",".join([str(s) for s in survival.std(axis=0)]), "])")
