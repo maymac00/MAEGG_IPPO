@@ -28,10 +28,10 @@ policies_t2s_meds[0.2][1000] = np.array([ 134.0,334.0,355.0,346.0,351.0 ])
 policies_t2s_iqr[0.2][1000] = np.array([ 50.0,72.0,67.0,70.0,68.5 ])
 
 # eff 0.4
-policies_t2s[0.4][0] = np.array([ 125.8734, 125.45, np.nan,np.nan,np.nan ])
-policies_t2s_std[0.4][0] = np.array([34.09,33.26, np.nan,np.nan,np.nan ])
-policies_t2s_meds[0.4][0] = np.array([120.0, 121.0, np.nan, np.nan, np.nan])
-policies_t2s_iqr[0.4][0] = np.array([44.0, 42.0, np.nan, np.nan, np.nan])
+policies_t2s[0.4][0] = np.array([ 121.43,110.28, np.nan,np.nan,np.nan ])
+policies_t2s_std[0.4][0] = np.array([ 30.55,25.42, np.nan,np.nan,np.nan ])
+policies_t2s_meds[0.4][0] = np.array([ 116.0,106.0, np.nan, np.nan, np.nan])
+policies_t2s_iqr[0.4][0] = np.array([ 37.25,32.0,np.nan, np.nan, np.nan])
 
 
 policies_t2s[0.4][1] = np.array([ 152.49,151.58,278.42,237.35,286.68 ])

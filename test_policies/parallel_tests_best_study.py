@@ -273,6 +273,9 @@ if __name__ == "__main__":
     env.print_results()
     env.plot_results("median", show=False, save_path=f"{folder}/{args.tag}/{args.tag}/{dir}_median_plot.png")
 
+    # MO rewards to file
+    np.save(f"{folder}/{args.tag}/{args.tag}/{dir}_mo_rewards.npy", final_mo_rewards)
+
     # Save t2s to csv
     pd.DataFrame(time2survive.reshape(-1, 5)).to_csv(f"{folder}/{args.tag}/{args.tag}/{dir}_t2s.csv",
                                                      header=[f"t2s_ag{i}" for i in range(5)],

@@ -44,6 +44,7 @@ validations[0.6][10] = np.array([ [-65.94, 9.65],[-64.41, 9.74],[-64.35, 9.82],[
 validations[0.6][1000] = np.array([ [-115.51, 36.19],[-117.14, 35.2],[-104.84, 40.22],[-166.64, 0.0],[-198.98, 0.0] ]) # Inefficient do not donate
 
 # eff 0.8
+
 pass
 
 for eff in eff_rates:
