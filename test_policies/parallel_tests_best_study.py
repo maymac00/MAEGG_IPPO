@@ -13,7 +13,7 @@ from IndependentPPO.agent import SoftmaxActor
 from IndependentPPO.ActionSelection import *
 import matplotlib
 
-import gym
+import gymnasium as gym
 import os
 import argparse
 
@@ -29,25 +29,25 @@ def _parallel_rollout(args):
     env, d, agents, global_id = args
     obs, _ = env.reset(seed=global_id)
     data = {}
-    acc_reward = np.zeros(env.n_agents)
-    acc_reward_mo = np.zeros((env.n_agents, 2))
-    reward_history_mo = np.zeros((env.max_steps, env.n_agents, 2))
+    acc_reward = np.zeros(env.unwrapped.n_agents)
+    acc_reward_mo = np.zeros((env.unwrapped.n_agents, 2))
+    reward_history_mo = np.zeros((env.unwrapped.max_steps, env.unwrapped.n_agents, 2))
 
-    for i in range(env.max_steps):
+    for i in range(env.unwrapped.max_steps):
         actions = [agent.predict(obs[i]) for i, agent in enumerate(agents)]
-        obs, reward, done, info = env.step(actions)
-        mo_rewards = np.array([ag.r_vec for ag in env.agents.values()])
+        obs, reward, terminated, truncated, info = env.step(actions)
+        mo_rewards = np.array([ag.r_vec for ag in env.unwrapped.agents.values()])
         reward_history_mo[i] = mo_rewards
 
         acc_reward += np.array(reward)
         acc_reward_mo += mo_rewards
 
-        if all(done):
+        if terminated or truncated:
             break
 
-    disc_mo = np.zeros((env.max_steps, env.n_agents, 2))
+    disc_mo = np.zeros((env.unwrapped.max_steps, env.unwrapped.n_agents, 2))
     gamma = 0.8
-    for agent in range(env.n_agents):
+    for agent in range(env.unwrapped.n_agents):
         for reward_type in range(2):
             # Extract the rewards for the current episode, agent, and reward type
             rewards = reward_history_mo[:, agent, reward_type]  # Shape (500,)
@@ -60,10 +60,10 @@ def _parallel_rollout(args):
     data["so"] = acc_reward
     data["mo"] = acc_reward_mo
     data["disc_mo"] = disc_mo.sum(axis=0)
-    data["history"] = env.history
+    data["history"] = env.unwrapped.history
 
     info["sim_data"]["time_to_survival"] = [np.inf if t == -1 else t for t in info["sim_data"]["time_to_survival"]]
-    data["n_survivors"] = sum([1 if ag.apples >= env.survival_threshold else 0 for ag in env.agents.values()])
+    data["n_survivors"] = sum([1 if ag.apples >= env.unwrapped.survival_threshold else 0 for ag in env.unwrapped.agents.values()])
     data["time_to_survival"] = info["sim_data"]["time_to_survival"]
 
     # Print rewards
@@ -83,26 +83,41 @@ if __name__ == "__main__":
     args.add_argument("--mode", type=str, default="parallel")
     args.add_argument("--specific-path", type=str, default="")
     args.add_argument("--specific-dir", type=str, default="")
+
+    # Environment parameters
+    args.add_argument("--we", type=float, default=10.0)
+    args.add_argument("--effrate", type=float, default=0.6)
+    args.add_argument("--db", type=float, default=10)
+    args.add_argument("--sthld", type=float, default=30)
+    args.add_argument("--n-agents", type=int, default=5)
     args = args.parse_args()
     folder = args.folder
 
     try:
         db = float(args.tag.split("db")[1].split("_")[0])
-        we = float(args.tag.split("we")[1].split("_")[0])
+    except:
+        db = args.db
+    try:
         eff_rate = float(args.tag.split("effrate")[1].split("_")[0])
     except:
-        raise ValueError("Please provide the we, effrate and db values in the tag.")
+        eff_rate = args.effrate
+    try:
+        we = float(args.tag.split("we")[1].split("_")[0])
+    except:
+        we = args.we
 
     large["we"] = [1, we]
-    large["efficiency"] = [0.85] * int(5 * eff_rate) + [0.2] * int(5 - eff_rate * 5)
+    large["efficiency"] = [0.85] * int(args.n_agents * eff_rate) + [0.15] * int(args.n_agents - eff_rate * args.n_agents)
     large["donation_capacity"] = db
     large["color_by_efficiency"] = True
     large["objective_order"] = "individual_first"
+    large["survival_threshold"] = args.sthld
+    large["n_agents"] = args.n_agents
     env = gym.make("MultiAgentEthicalGathering-v1", **large)
     if args.mode != "parallel":
         env = StatTracker(env)
     # env = NormalizeReward(env)
-    env.toggleTrack(True)
+    env.unwrapped.toggleTrack(True)
     env.reset()
 
     # If root dir is not MAEGG_IPPO, up one level
@@ -150,14 +165,14 @@ if __name__ == "__main__":
     # Running the simulation. Parallelized on batches of 5 simulations.
     n_sims = args.n_sims
 
-    env.toggleTrack(True)
-    env.toggleStash(True)
+    env.unwrapped.toggleTrack(True)
+    env.unwrapped.toggleStash(True)
     stash = []
-    final_so_rewards = np.zeros((n_sims, env.n_agents))
-    final_mo_rewards = np.zeros((n_sims, env.n_agents, 2))
-    time2survive = np.zeros((n_sims, env.n_agents))
-    survival = np.zeros((n_sims, env.n_agents))
-    discounted_returns = np.zeros((n_sims, env.n_agents, 2))
+    final_so_rewards = np.zeros((n_sims, env.unwrapped.n_agents))
+    final_mo_rewards = np.zeros((n_sims, env.unwrapped.n_agents, 2))
+    time2survive = np.zeros((n_sims, env.unwrapped.n_agents))
+    survival = np.zeros((n_sims, env.unwrapped.n_agents))
+    discounted_returns = np.zeros((n_sims, env.unwrapped.n_agents, 2))
 
     batch_size = min(5, n_sims)
     if args.mode == "parallel":
@@ -172,9 +187,9 @@ if __name__ == "__main__":
                     p.map(_parallel_rollout, tasks)
 
                 for i in range(solved, solved + batch_size):
-                    stash.append(env.build_history_array(h=d[i]["history"]))
+                    stash.append(env.unwrapped.build_history_array(h=d[i]["history"]))
                     # h = copy.deepcopy(d[i]["history"])
-                    # env.setHistory(h)
+                    # env.unwrapped.setHistory(h)
                     final_so_rewards[i] = d[i]["so"]
                     final_mo_rewards[i] = d[i]["mo"]
                     discounted_returns[i] = d[i]["disc_mo"]
@@ -183,7 +198,7 @@ if __name__ == "__main__":
                     env.reset()
                 solved += batch_size
 
-            env.setStash(stash)
+            env.unwrapped.setStash(stash)
             # redirect stdout to file
             sys.stdout = open(f"{folder}/{args.tag}/{args.tag}/{dir}_results.txt", "w")
             print(f"Results for {args.tag}/{dir}")
@@ -193,6 +208,8 @@ if __name__ == "__main__":
             print("\nMean reward per agent: ", '\t'.join([str(s) for s in final_so_rewards.mean(axis=0)]))
             print("\nMean mo reward per agent: np.array([",
                   ','.join([f'[{round(s[0], 2)}, {round(s[1], 2)}]' for s in final_mo_rewards.mean(axis=0)]), "])")
+            print("\nSTD mo reward per agent: np.array([",
+                  ','.join([f'[{round(s[0], 2)}, {round(s[1], 2)}]' for s in final_mo_rewards.std(axis=0)]), "])")
             print("Expected discounted mo returns: np.array([", ','.join(
                 [f'[{round(s[0], 2)}, {round(s[1], 2)}]' for s in discounted_returns.mean(axis=0)]), "])")
 
@@ -212,24 +229,24 @@ if __name__ == "__main__":
     else:
         for sim in range(n_sims):
             obs, _ = env.reset()
-            acc_reward = np.zeros(env.n_agents)
-            acc_reward_mo = np.zeros((env.n_agents, 2))
-            reward_history_mo = np.zeros((env.max_steps, env.n_agents, 2))
+            acc_reward = np.zeros(env.unwrapped.n_agents)
+            acc_reward_mo = np.zeros((env.unwrapped.n_agents, 2))
+            reward_history_mo = np.zeros((env.unwrapped.max_steps, env.unwrapped.n_agents, 2))
 
-            for i in range(env.max_steps):
+            for i in range(env.unwrapped.max_steps):
                 actions = [agent.predict(obs[i]) for i, agent in enumerate(agents)]
-                obs, reward, done, info = env.step(actions)
-                mo_rewards = np.array([ag.r_vec for ag in env.agents.values()])
+                obs, reward, terminated, truncated, info = env.step(actions)
+                mo_rewards = np.array([ag.r_vec for ag in env.unwrapped.agents.values()])
                 reward_history_mo[i] = mo_rewards
 
                 acc_reward += np.array(reward)
                 acc_reward_mo += mo_rewards
 
-                if all(done):
+                if terminated or truncated:
                     break
-            disc_mo = np.zeros((env.max_steps, env.n_agents, 2))
+            disc_mo = np.zeros((env.unwrapped.max_steps, env.unwrapped.n_agents, 2))
             gamma = 0.8
-            for agent in range(env.n_agents):
+            for agent in range(env.unwrapped.n_agents):
                 for reward_type in range(2):
                     # Extract the rewards for the current episode, agent, and reward type
                     rewards = reward_history_mo[:, agent, reward_type]  # Shape (500,)
@@ -254,6 +271,9 @@ if __name__ == "__main__":
         print("\nMean reward per agent: ", '\t'.join([str(s) for s in final_so_rewards.mean(axis=0)]))
         print("\nMean mo reward per agent: np.array([",
               ','.join([f'[{round(s[0], 2)}, {round(s[1], 2)}]' for s in final_mo_rewards.mean(axis=0)]), "])")
+        print("\nSTD mo reward per agent: np.array([",
+              ','.join([f'[{round(s[0], 2)}, {round(s[1], 2)}]' for s in final_mo_rewards.std(axis=0)]), "])")
+
         print("Expected discounted mo returns: np.array([", ','.join(
             [f'[{round(s[0], 2)}, {round(s[1], 2)}]' for s in discounted_returns.mean(axis=0)]), "])")
 
@@ -270,15 +290,18 @@ if __name__ == "__main__":
         print("IQR Time to survive: np.array([", ",".join([f'{round(np.percentile(s, 75) - np.percentile(s, 25), 2)}' for s in time2survive.T]), "])")
 
     # Plotting the results
-    env.print_results()
-    env.plot_results("median", show=False, save_path=f"{folder}/{args.tag}/{args.tag}/{dir}_median_plot.png")
-
-    # MO rewards to file
-    np.save(f"{folder}/{args.tag}/{args.tag}/{dir}_mo_rewards.npy", final_mo_rewards)
+    try:
+        matplotlib.use("TkAgg")
+        env.unwrapped.plot_results("median", show=False,
+                                   save_path=f"{folder}/{args.tag}/{args.tag}/{dir}_median_plot.png")
+    except ImportError:
+        env.unwrapped.plot_results("median", show=False,
+                                   save_path=f"{folder}/{args.tag}/{args.tag}/{dir}_median_plot.png")
+    env.unwrapped.print_results()
 
     # Save t2s to csv
-    pd.DataFrame(time2survive.reshape(-1, 5)).to_csv(f"{folder}/{args.tag}/{args.tag}/{dir}_t2s.csv",
-                                                     header=[f"t2s_ag{i}" for i in range(5)],
+    pd.DataFrame(time2survive.reshape(-1, args.n_agents)).to_csv(f"{folder}/{args.tag}/{args.tag}/{dir}_t2s.csv",
+                                                     header=[f"t2s_ag{i}" for i in range(args.n_agents)],
                                                      index=False)
 
     # return stdout to console
